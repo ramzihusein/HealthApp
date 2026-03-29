@@ -19,7 +19,7 @@ struct OnboardingFlowView: View {
     @State private var injuries = ""
     @State private var cookMins = 45
     @State private var budget = 120.0
-    @State private var useImperial = false
+    @State private var useImperial = true
     @State private var currencyCode = "USD"
     @State private var isGenerating = false
     @State private var errorMessage: String?

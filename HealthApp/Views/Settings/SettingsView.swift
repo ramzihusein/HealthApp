@@ -8,7 +8,7 @@ struct SettingsView: View {
     @State private var apiKey = ""
     @State private var baseURL = ""
     @State private var modelId = ""
-    @State private var useImperial = false
+    @State private var useImperial = true
     @State private var currencyCode = "USD"
     @State private var savedNotice = false
     @State private var isRegeneratingPlans = false

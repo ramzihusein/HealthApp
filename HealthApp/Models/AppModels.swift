@@ -35,7 +35,7 @@ final class UserHealthProfile {
         injuriesNotes: String = "",
         dailyCookingMinutes: Int = 45,
         weeklyMealBudget: Double = 100,
-        measurementSystemRaw: String = "metric",
+        measurementSystemRaw: String = "imperial",
         currencyCode: String = "USD",
         createdAt: Date = .now,
         updatedAt: Date = .now

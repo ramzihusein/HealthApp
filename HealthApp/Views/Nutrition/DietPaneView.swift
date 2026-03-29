@@ -13,7 +13,7 @@ struct DietPaneView: View {
     @State private var caloriesText = ""
     @State private var weightText = ""
     @State private var notes = ""
-    @State private var useImperialWeight: Bool = false
+    @State private var useImperialWeight: Bool = true
 
     private var profile: UserHealthProfile? { profiles.first }
     private var imperial: Bool { profile?.measurementSystemRaw == "imperial" }
