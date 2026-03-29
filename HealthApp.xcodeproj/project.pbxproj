@@ -31,6 +31,8 @@
 		F10000000000000000000017 /* MeasureConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000018 /* MeasureConversion.swift */; };
 		F10000000000000000000018 /* ExerciseKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000019 /* ExerciseKind.swift */; };
 		F10000000000000000000019 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* SettingsView.swift */; };
+		F1000000000000000000001A /* OnboardingLLMProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001B /* OnboardingLLMProvider.swift */; };
+		F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -60,6 +62,8 @@
 		F20000000000000000000018 /* MeasureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasureConversion.swift; sourceTree = "<group>"; };
 		F20000000000000000000019 /* ExerciseKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseKind.swift; sourceTree = "<group>"; };
 		F2000000000000000000001A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F2000000000000000000001B /* OnboardingLLMProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingLLMProvider.swift; sourceTree = "<group>"; };
+		F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMApiKeyHelpDisclosure.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +131,7 @@
 				F20000000000000000000017 /* AppConfig.swift */,
 				F20000000000000000000018 /* MeasureConversion.swift */,
 				F20000000000000000000019 /* ExerciseKind.swift */,
+				F2000000000000000000001B /* OnboardingLLMProvider.swift */,
 				F20000000000000000000006 /* CalendarDay.swift */,
 				F20000000000000000000007 /* DayKey.swift */,
 			);
@@ -171,6 +176,7 @@
 			isa = PBXGroup;
 			children = (
 				F2000000000000000000000D /* OnboardingFlowView.swift */,
+				F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */,
 			);
 			path = Onboarding;
 			sourceTree = "<group>";
@@ -309,6 +315,8 @@
 				F10000000000000000000017 /* MeasureConversion.swift in Sources */,
 				F10000000000000000000018 /* ExerciseKind.swift in Sources */,
 				F10000000000000000000019 /* SettingsView.swift in Sources */,
+				F1000000000000000000001A /* OnboardingLLMProvider.swift in Sources */,
+				F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

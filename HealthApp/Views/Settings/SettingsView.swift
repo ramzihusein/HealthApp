@@ -14,6 +14,19 @@ struct SettingsView: View {
 
     private var profile: UserHealthProfile? { profiles.first }
 
+    /// Tutorial content tracks base URL when set; otherwise last onboarding provider from UserDefaults.
+    private var tutorialProvider: OnboardingLLMProvider {
+        let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            return OnboardingLLMProvider.fromStoredBaseURL(trimmed)
+        }
+        if let raw = UserDefaults.standard.string(forKey: AppConfig.llmProviderRawKey),
+           let p = OnboardingLLMProvider(rawValue: raw) {
+            return p
+        }
+        return .openAI
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -29,6 +42,9 @@ struct SettingsView: View {
                             SecureField("API key", text: $apiKey)
                                 .textContentType(.password)
                                 .textFieldStyle(.roundedBorder)
+
+                            LLMApiKeyHelpDisclosure(provider: tutorialProvider)
+
                             TextField("Base URL (optional)", text: $baseURL)
                                 .textFieldStyle(.roundedBorder)
                                 .autocorrectionDisabled()

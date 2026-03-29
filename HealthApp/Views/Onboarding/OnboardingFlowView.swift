@@ -6,6 +6,10 @@ struct OnboardingFlowView: View {
     var existingProfile: UserHealthProfile?
 
     @State private var step = 0
+    @State private var llmProvider: OnboardingLLMProvider = .openAI
+    @State private var llmApiKeyDraft = ""
+    @State private var customBaseURL = ""
+    @State private var customModel = ""
     @State private var age = 30
     @State private var weightKg = 75.0
     @State private var heightCm = 175.0
@@ -110,6 +114,7 @@ struct OnboardingFlowView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .onAppear {
+            loadLLMFieldsFromStorage()
             if let p = existingProfile {
                 age = p.age
                 weightKg = p.weightKg
@@ -124,23 +129,34 @@ struct OnboardingFlowView: View {
                 currencyCode = CurrencyOption(rawValue: p.currencyCode) != nil ? p.currencyCode : "USD"
             }
         }
+        .onChange(of: llmProvider) { old, p in
+            if p == .custom, old != .custom {
+                customBaseURL = ""
+                customModel = ""
+            } else if p != .custom {
+                customBaseURL = p.defaultBaseURL
+                customModel = p.defaultModel
+            }
+        }
     }
 
     private var headerTitle: String {
         switch step {
-        case 0: return "Your baseline"
-        case 1: return "Goals & safety"
-        case 2: return "Kitchen & budget"
+        case 0: return "Plan generation"
+        case 1: return "Your baseline"
+        case 2: return "Goals & safety"
+        case 3: return "Kitchen & budget"
         default: return "Build your plans"
         }
     }
 
     private var headerSubtitle: String {
         switch step {
-        case 0: return "We use this to size training and nutrition — not to judge."
-        case 1: return "Pick what matters now. You can change this later."
-        case 2: return "Helps the planner respect real life."
-        default: return "We generate a structured workout and meal plan. Add an API key in Settings for live LLM output."
+        case 0: return "Choose a provider and optional API key. You can change this later in Settings."
+        case 1: return "We use this to size training and nutrition — not to judge."
+        case 2: return "Pick what matters now. You can change this later."
+        case 3: return "Helps the planner respect real life."
+        default: return "We’ll build your workout and meal plan from your answers."
         }
     }
 
@@ -148,13 +164,118 @@ struct OnboardingFlowView: View {
     private var stepsContent: some View {
         switch step {
         case 0:
-            stepBaseline
+            stepLLMSetup
         case 1:
-            stepGoals
+            stepBaseline
         case 2:
+            stepGoals
+        case 3:
             stepKitchen
         default:
             stepFinish
+        }
+    }
+
+    private var canProceedFromLLMStep: Bool {
+        if llmProvider != .custom { return true }
+        return !customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var stepLLMSetup: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            FocusCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("AI provider")
+                        .font(.headline)
+                        .foregroundStyle(FocusPalette.textPrimary)
+                    Text("The app calls an OpenAI-style chat API (`/v1/chat/completions`). Pick the host you use; keys stay on this device.")
+                        .font(.caption)
+                        .foregroundStyle(FocusPalette.textSecondary)
+
+                    llmProviderMenu
+
+                    if llmProvider == .custom {
+                        TextField("Base URL (e.g. https://api.example.com/v1)", text: $customBaseURL)
+                            .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                        TextField("Model id", text: $customModel)
+                            .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                        if !canProceedFromLLMStep {
+                            Text("Enter a base URL to continue, or choose another provider.")
+                                .font(.caption)
+                                .foregroundStyle(FocusPalette.warning)
+                        }
+                    }
+
+                    Text("API key (optional)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FocusPalette.textSecondary)
+                    SecureField("Paste key — leave empty to use a mock plan", text: $llmApiKeyDraft)
+                        .textContentType(.password)
+                        .textFieldStyle(.roundedBorder)
+
+                    LLMApiKeyHelpDisclosure(provider: llmProvider)
+                }
+            }
+
+            FocusCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    disclaimerRow(
+                        title: "Mock plans without a key",
+                        body: "If you do not enter an API key, the app uses a generic mock workout and meal plan (not from a live model). You can add a key anytime in Settings."
+                    )
+                    Divider().background(FocusPalette.border)
+                    disclaimerRow(
+                        title: "Not professional medical or coaching advice",
+                        body: "This app is not a substitute for a licensed dietitian, physician, or certified personal trainer. For medical conditions or injuries, consult a qualified professional."
+                    )
+                }
+            }
+        }
+    }
+
+    private func disclaimerRow(title: String, body: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(FocusPalette.warning)
+                .font(.body)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textPrimary)
+                Text(body)
+                    .font(.footnote)
+                    .foregroundStyle(FocusPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var llmProviderMenu: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Provider")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FocusPalette.textSecondary)
+            Menu {
+                ForEach(OnboardingLLMProvider.allCases) { p in
+                    Button(p.menuLabel) { llmProvider = p }
+                }
+            } label: {
+                HStack {
+                    Text(llmProvider.menuLabel)
+                        .foregroundStyle(FocusPalette.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(FocusPalette.textSecondary)
+                }
+                .padding(12)
+                .background(FocusPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
         }
     }
 
@@ -281,9 +402,13 @@ struct OnboardingFlowView: View {
                     .buttonStyle(FocusSecondaryButtonStyle())
             }
             Spacer(minLength: 0)
-            if step < 3 {
-                Button("Continue") { step += 1 }
-                    .buttonStyle(FocusPrimaryButtonStyle())
+            if step < 4 {
+                Button("Continue") {
+                    if step == 0 { persistLLMSettingsFromOnboarding() }
+                    step += 1
+                }
+                .buttonStyle(FocusPrimaryButtonStyle())
+                .disabled(step == 0 && !canProceedFromLLMStep)
             } else {
                 Button(action: completeOnboarding) {
                     Text(isGenerating ? "Working…" : "Generate plans")
@@ -413,5 +538,50 @@ struct OnboardingFlowView: View {
     private func profilesFetchFirst() -> UserHealthProfile? {
         let d = FetchDescriptor<UserHealthProfile>()
         return try? modelContext.fetch(d).first
+    }
+
+    private func loadLLMFieldsFromStorage() {
+        let ud = UserDefaults.standard
+        llmApiKeyDraft = ud.string(forKey: AppConfig.openAIKeyUserDefaultsKey) ?? ""
+        let base = ud.string(forKey: AppConfig.openAIBaseURLKey)
+        let model = ud.string(forKey: AppConfig.openAIModelKey) ?? ""
+        if let raw = ud.string(forKey: AppConfig.llmProviderRawKey),
+           let p = OnboardingLLMProvider(rawValue: raw) {
+            llmProvider = p
+        } else {
+            llmProvider = OnboardingLLMProvider.fromStoredBaseURL(base)
+        }
+        if llmProvider == .custom {
+            customBaseURL = base ?? ""
+            customModel = model
+        } else {
+            customBaseURL = llmProvider.defaultBaseURL
+            customModel = model.isEmpty ? llmProvider.defaultModel : model
+        }
+    }
+
+    private func persistLLMSettingsFromOnboarding() {
+        let ud = UserDefaults.standard
+        let trimmedKey = llmApiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedKey.isEmpty {
+            ud.removeObject(forKey: AppConfig.openAIKeyUserDefaultsKey)
+        } else {
+            ud.set(trimmedKey, forKey: AppConfig.openAIKeyUserDefaultsKey)
+        }
+
+        if llmProvider == .custom {
+            let base = customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            let model = customModel.trimmingCharacters(in: .whitespacesAndNewlines)
+            ud.set(base, forKey: AppConfig.openAIBaseURLKey)
+            if model.isEmpty {
+                ud.removeObject(forKey: AppConfig.openAIModelKey)
+            } else {
+                ud.set(model, forKey: AppConfig.openAIModelKey)
+            }
+        } else {
+            ud.set(llmProvider.defaultBaseURL, forKey: AppConfig.openAIBaseURLKey)
+            ud.set(llmProvider.defaultModel, forKey: AppConfig.openAIModelKey)
+        }
+        ud.set(llmProvider.rawValue, forKey: AppConfig.llmProviderRawKey)
     }
 }
