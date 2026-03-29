@@ -4,6 +4,7 @@ import Foundation
 enum PlanGenerationService {
     enum GenerationError: LocalizedError {
         case missingAPIKey
+        case rateLimited
         case badResponse(Int)
         case emptyChoices
         case invalidJSON
@@ -11,11 +12,24 @@ enum PlanGenerationService {
         var errorDescription: String? {
             switch self {
             case .missingAPIKey: return "No API key configured."
+            case .rateLimited:
+                return "The API rate limit was hit (HTTP 429). Wait a minute or two and try again, or check your provider's usage limits and billing."
             case .badResponse(let c): return "API returned status \(c)."
             case .emptyChoices: return "No completion text from model."
             case .invalidJSON: return "Model output was not valid JSON."
             }
         }
+    }
+
+    private static let maxLLMHTTPAttempts = 4
+
+    /// Parses `Retry-After` when the server sends delay in seconds (common for 429).
+    private static func retryAfterSeconds(from response: HTTPURLResponse) -> TimeInterval? {
+        guard let raw = response.value(forHTTPHeaderField: "Retry-After")?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else {
+            return nil
+        }
+        guard let secs = TimeInterval(raw), secs >= 0 else { return nil }
+        return min(secs, 120)
     }
 
     private static var openAIKey: String? {
@@ -106,10 +120,30 @@ enum PlanGenerationService {
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, resp) = try await URLSession.shared.data(for: req)
-        guard let http = resp as? HTTPURLResponse else { throw GenerationError.badResponse(-1) }
-        guard (200...299).contains(http.statusCode) else { throw GenerationError.badResponse(http.statusCode) }
+        var attempt = 0
+        while true {
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            guard let http = resp as? HTTPURLResponse else { throw GenerationError.badResponse(-1) }
 
+            if (200...299).contains(http.statusCode) {
+                return try parseChatCompletionJSON(data: data)
+            }
+
+            if http.statusCode == 429, attempt + 1 < maxLLMHTTPAttempts {
+                let delay = retryAfterSeconds(from: http) ?? min(Double(1 << attempt), 30)
+                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                attempt += 1
+                continue
+            }
+
+            if http.statusCode == 429 {
+                throw GenerationError.rateLimited
+            }
+            throw GenerationError.badResponse(http.statusCode)
+        }
+    }
+
+    private static func parseChatCompletionJSON(data: Data) throws -> (String, String) {
         guard
             let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
             let choices = root["choices"] as? [[String: Any]],

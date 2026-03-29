@@ -169,7 +169,6 @@ enum PDFExportService {
                 let k = DayKey.string(for: d)
                 return CGFloat(nutByKey[k]?.caloriesIn ?? 0)
             }
-            let maxCal = max(calBars.max() ?? 0, CGFloat(goalCal ?? 0) * 1.2, 1)
             state.ensureSpace(150)
             let barRect = CGRect(x: margin, y: state.y, width: contentW, height: 120)
             drawBarChartWithGoalLine(
@@ -384,7 +383,9 @@ enum PDFExportService {
         gridColor: UIColor,
         labels: [String]
     ) {
-        let maxV = max(values.max() ?? 0, goal ?? 0, 1)
+        let vMax = values.max() ?? 0
+        let g = goal ?? 0
+        let maxV: CGFloat = g > 0 ? max(vMax, g * 1.2, 1) : max(vMax, 1)
         let count = values.count
         guard count > 0 else { return }
         let barW = (rect.width - CGFloat(count + 1) * 4) / CGFloat(count)
