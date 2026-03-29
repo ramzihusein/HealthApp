@@ -5,7 +5,7 @@ enum PlanJSONNormalizer {
     static func normalizeWorkoutRoot(_ root: [String: Any]) -> [String: Any] {
         var root = root
         if root["weeks"] == nil { root["weeks"] = [] }
-        guard var weeks = root["weeks"] as? [[String: Any]] else {
+        guard let weeks = root["weeks"] as? [[String: Any]] else {
             root["weeks"] = []
             return root
         }
@@ -21,7 +21,7 @@ enum PlanJSONNormalizer {
             root["targetDailyCalories"] = 2000
         }
         if root["days"] == nil { root["days"] = [] }
-        guard var days = root["days"] as? [[String: Any]] else {
+        guard let days = root["days"] as? [[String: Any]] else {
             root["days"] = []
             return root
         }
@@ -36,7 +36,7 @@ enum PlanJSONNormalizer {
         let lab = coerceToString(week["label"]) ?? ""
         week["label"] = lab.isEmpty ? "Week 1" : lab
         if week["days"] == nil { week["days"] = [] }
-        guard var days = week["days"] as? [[String: Any]] else {
+        guard let days = week["days"] as? [[String: Any]] else {
             week["days"] = []
             return week
         }
