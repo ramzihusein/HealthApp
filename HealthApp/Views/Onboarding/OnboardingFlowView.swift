@@ -6,9 +6,6 @@ struct OnboardingFlowView: View {
     var existingProfile: UserHealthProfile?
 
     @State private var step = 0
-    @State private var llmProvider: OnboardingLLMProvider = .openAI
-    @State private var customBaseURL = ""
-    @State private var customModel = ""
     @State private var age = 30
     @State private var weightKg = 75.0
     @State private var heightCm = 175.0
@@ -134,7 +131,6 @@ struct OnboardingFlowView: View {
             .navigationBarTitleDisplayMode(.inline)
         }
         .onAppear {
-            loadLLMFieldsFromStorage()
             if let p = existingProfile {
                 age = p.age
                 weightKg = p.weightKg
@@ -154,35 +150,24 @@ struct OnboardingFlowView: View {
                 equipmentSelected = Set(eqParts.map { $0 == "bodyweight_only" ? "no_gym_equipment" : $0 })
             }
         }
-        .onChange(of: llmProvider) { old, p in
-            if p == .custom, old != .custom {
-                customBaseURL = ""
-                customModel = ""
-            } else if p != .custom {
-                customBaseURL = p.defaultBaseURL
-                customModel = p.defaultModel
-            }
-        }
     }
 
     private var headerTitle: String {
         switch step {
-        case 0: return "Plan generation"
-        case 1: return "Your baseline"
-        case 2: return "Training & equipment"
-        case 3: return "Goals & safety"
-        case 4: return "Kitchen & budget"
+        case 0: return "Your baseline"
+        case 1: return "Training & equipment"
+        case 2: return "Goals & safety"
+        case 3: return "Kitchen & budget"
         default: return "Build your plans"
         }
     }
 
     private var headerSubtitle: String {
         switch step {
-        case 0: return "Plans use the built-in AI connection. You can switch to your own key and model in Settings anytime."
-        case 1: return "We use this to size training and nutrition — not to judge."
-        case 2: return "Time, weekly frequency, and gear so strength and cardio stay realistic."
-        case 3: return "Pick what matters now. You can change this later."
-        case 4: return "Helps the planner respect real life."
+        case 0: return "We use this to size training and nutrition — not to judge."
+        case 1: return "Time, weekly frequency, and gear so strength and cardio stay realistic."
+        case 2: return "Pick what matters now. You can change this later."
+        case 3: return "Helps the planner respect real life."
         default: return "We’ll build your workout and meal plan from your answers."
         }
     }
@@ -191,69 +176,15 @@ struct OnboardingFlowView: View {
     private var stepsContent: some View {
         switch step {
         case 0:
-            stepLLMSetup
-        case 1:
             stepBaseline
-        case 2:
+        case 1:
             stepTraining
-        case 3:
+        case 2:
             stepGoals
-        case 4:
+        case 3:
             stepKitchen
         default:
             stepFinish
-        }
-    }
-
-    private var canProceedFromLLMStep: Bool {
-        if llmProvider != .custom { return true }
-        return !customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var stepLLMSetup: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            FocusCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("AI-powered plans")
-                        .font(.headline)
-                        .foregroundStyle(FocusPalette.textPrimary)
-                    Text("Workout and meal plans are generated with an OpenAI-compatible chat API. No API key is required here — advanced users can use their own key under Settings.")
-                        .font(.caption)
-                        .foregroundStyle(FocusPalette.textSecondary)
-
-                    llmProviderMenu
-
-                    if llmProvider == .custom {
-                        TextField("Base URL (e.g. https://api.example.com/v1)", text: $customBaseURL)
-                            .textFieldStyle(.roundedBorder)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                        TextField("Model id", text: $customModel)
-                            .textFieldStyle(.roundedBorder)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                        if !canProceedFromLLMStep {
-                            Text("Enter a base URL to continue, or choose another provider.")
-                                .font(.caption)
-                                .foregroundStyle(FocusPalette.warning)
-                        }
-                        Text("Custom endpoints require enabling “Use my own API credentials” in Settings and saving your key there.")
-                            .font(.caption2)
-                            .foregroundStyle(FocusPalette.textSecondary)
-                    }
-
-                    LLMApiKeyHelpDisclosure(provider: llmProvider)
-                }
-            }
-
-            FocusCard {
-                VStack(alignment: .leading, spacing: 10) {
-                    disclaimerRow(
-                        title: "Not professional medical or coaching advice",
-                        body: "This app is not a substitute for a licensed dietitian, physician, or certified personal trainer. For medical conditions or injuries, consult a qualified professional."
-                    )
-                }
-            }
         }
     }
 
@@ -270,31 +201,6 @@ struct OnboardingFlowView: View {
                     .font(.footnote)
                     .foregroundStyle(FocusPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var llmProviderMenu: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Provider")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(FocusPalette.textSecondary)
-            Menu {
-                ForEach(OnboardingLLMProvider.allCases) { p in
-                    Button(p.menuLabel) { llmProvider = p }
-                }
-            } label: {
-                HStack {
-                    Text(llmProvider.menuLabel)
-                        .foregroundStyle(FocusPalette.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.up.chevron.down")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(FocusPalette.textSecondary)
-                }
-                .padding(12)
-                .background(FocusPalette.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
         }
     }
@@ -335,6 +241,15 @@ struct OnboardingFlowView: View {
                         ("active", "Active — 5+ sessions/wk"),
                         ("very_active", "Very active — physical job + training")
                     ])
+                }
+            }
+
+            FocusCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    disclaimerRow(
+                        title: "Not professional medical or coaching advice",
+                        body: "This app is not a substitute for a licensed dietitian, physician, or certified personal trainer. For medical conditions or injuries, consult a qualified professional."
+                    )
                 }
             }
         }
@@ -465,13 +380,11 @@ struct OnboardingFlowView: View {
                     .buttonStyle(FocusSecondaryButtonStyle())
             }
             Spacer(minLength: 0)
-            if step < 5 {
+            if step < 4 {
                 Button("Continue") {
-                    if step == 0 { persistLLMSettingsFromOnboarding() }
                     step += 1
                 }
                 .buttonStyle(FocusPrimaryButtonStyle())
-                .disabled(step == 0 && !canProceedFromLLMStep)
             } else {
                 Button(action: completeOnboarding) {
                     Text(isGenerating ? "Working…" : "Generate plans")
@@ -610,42 +523,4 @@ struct OnboardingFlowView: View {
         return try? modelContext.fetch(d).first
     }
 
-    private func loadLLMFieldsFromStorage() {
-        let ud = UserDefaults.standard
-        let base = ud.string(forKey: AppConfig.openAIBaseURLKey)
-        let model = ud.string(forKey: AppConfig.openAIModelKey) ?? ""
-        if let raw = ud.string(forKey: AppConfig.llmProviderRawKey),
-           let p = OnboardingLLMProvider(rawValue: raw) {
-            llmProvider = p
-        } else {
-            llmProvider = OnboardingLLMProvider.fromStoredBaseURL(base)
-        }
-        if llmProvider == .custom {
-            customBaseURL = base ?? ""
-            customModel = model
-        } else {
-            customBaseURL = llmProvider.defaultBaseURL
-            customModel = model.isEmpty ? llmProvider.defaultModel : model
-        }
-    }
-
-    private func persistLLMSettingsFromOnboarding() {
-        let ud = UserDefaults.standard
-        if llmProvider == .custom {
-            LLMCredentialStore.setUsesCustomCredentials(true)
-            let base = customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            let model = customModel.trimmingCharacters(in: .whitespacesAndNewlines)
-            ud.set(base, forKey: AppConfig.openAIBaseURLKey)
-            if model.isEmpty {
-                ud.removeObject(forKey: AppConfig.openAIModelKey)
-            } else {
-                ud.set(model, forKey: AppConfig.openAIModelKey)
-            }
-        } else {
-            LLMCredentialStore.setUsesCustomCredentials(false)
-            ud.removeObject(forKey: AppConfig.openAIBaseURLKey)
-            ud.removeObject(forKey: AppConfig.openAIModelKey)
-        }
-        ud.set(llmProvider.rawValue, forKey: AppConfig.llmProviderRawKey)
-    }
 }
