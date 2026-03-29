@@ -46,6 +46,7 @@
 		F20000000000000000000003 /* FocusPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusPalette.swift; sourceTree = "<group>"; };
 		F20000000000000000000004 /* PlanDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDTOs.swift; sourceTree = "<group>"; };
 		F20000000000000000000021 /* PlanJSONNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanJSONNormalizer.swift; sourceTree = "<group>"; };
+		F20000000000000000000022 /* LLMSecrets.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = LLMSecrets.xcconfig; sourceTree = "<group>"; };
 		F20000000000000000000005 /* AppModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
 		F20000000000000000000006 /* CalendarDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDay.swift; sourceTree = "<group>"; };
 		F20000000000000000000007 /* DayKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayKey.swift; sourceTree = "<group>"; };
@@ -99,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				F20000000000000000000001 /* HealthAppApp.swift */,
+				F40000000000000000000011 /* Configs */,
 				F40000000000000000000004 /* Theme */,
 				F40000000000000000000005 /* Models */,
 				F40000000000000000000006 /* Utilities */,
@@ -116,6 +118,14 @@
 				F20000000000000000000016 /* HealthApp.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		F40000000000000000000011 /* Configs */ = {
+			isa = PBXGroup;
+			children = (
+				F20000000000000000000022 /* LLMSecrets.xcconfig */,
+			);
+			path = Configs;
 			sourceTree = "<group>";
 		};
 		F40000000000000000000004 /* Theme */ = {
@@ -400,6 +410,7 @@
 		};
 		F70000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F20000000000000000000022 /* LLMSecrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -427,6 +438,7 @@
 		};
 		F70000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = F20000000000000000000022 /* LLMSecrets.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

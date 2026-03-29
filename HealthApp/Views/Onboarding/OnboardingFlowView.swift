@@ -7,7 +7,6 @@ struct OnboardingFlowView: View {
 
     @State private var step = 0
     @State private var llmProvider: OnboardingLLMProvider = .openAI
-    @State private var llmApiKeyDraft = ""
     @State private var customBaseURL = ""
     @State private var customModel = ""
     @State private var age = 30
@@ -179,7 +178,7 @@ struct OnboardingFlowView: View {
 
     private var headerSubtitle: String {
         switch step {
-        case 0: return "Choose a provider and optional API key. You can change this later in Settings."
+        case 0: return "Plans use the built-in AI connection. You can switch to your own key and model in Settings anytime."
         case 1: return "We use this to size training and nutrition — not to judge."
         case 2: return "Time, weekly frequency, and gear so strength and cardio stay realistic."
         case 3: return "Pick what matters now. You can change this later."
@@ -215,10 +214,10 @@ struct OnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 16) {
             FocusCard {
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("AI provider")
+                    Text("AI-powered plans")
                         .font(.headline)
                         .foregroundStyle(FocusPalette.textPrimary)
-                    Text("The app calls an OpenAI-style chat API (`/v1/chat/completions`). Pick the host you use; keys stay on this device.")
+                    Text("Workout and meal plans are generated with an OpenAI-compatible chat API. No API key is required here — advanced users can use their own key under Settings.")
                         .font(.caption)
                         .foregroundStyle(FocusPalette.textSecondary)
 
@@ -238,15 +237,10 @@ struct OnboardingFlowView: View {
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.warning)
                         }
+                        Text("Custom endpoints require enabling “Use my own API credentials” in Settings and saving your key there.")
+                            .font(.caption2)
+                            .foregroundStyle(FocusPalette.textSecondary)
                     }
-
-                    Text("API key (optional)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(FocusPalette.textSecondary)
-                    APIKeyField(
-                        text: $llmApiKeyDraft,
-                        placeholder: "sk-… or paste — leave empty to use a mock plan"
-                    )
 
                     LLMApiKeyHelpDisclosure(provider: llmProvider)
                 }
@@ -254,11 +248,6 @@ struct OnboardingFlowView: View {
 
             FocusCard {
                 VStack(alignment: .leading, spacing: 10) {
-                    disclaimerRow(
-                        title: "Mock plans without a key",
-                        body: "If you do not enter an API key, the app uses a generic mock workout and meal plan (not from a live model). You can add a key anytime in Settings."
-                    )
-                    Divider().background(FocusPalette.border)
                     disclaimerRow(
                         title: "Not professional medical or coaching advice",
                         body: "This app is not a substitute for a licensed dietitian, physician, or certified personal trainer. For medical conditions or injuries, consult a qualified professional."
@@ -623,7 +612,6 @@ struct OnboardingFlowView: View {
 
     private func loadLLMFieldsFromStorage() {
         let ud = UserDefaults.standard
-        llmApiKeyDraft = ud.string(forKey: AppConfig.openAIKeyUserDefaultsKey) ?? ""
         let base = ud.string(forKey: AppConfig.openAIBaseURLKey)
         let model = ud.string(forKey: AppConfig.openAIModelKey) ?? ""
         if let raw = ud.string(forKey: AppConfig.llmProviderRawKey),
@@ -643,14 +631,8 @@ struct OnboardingFlowView: View {
 
     private func persistLLMSettingsFromOnboarding() {
         let ud = UserDefaults.standard
-        let trimmedKey = llmApiKeyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedKey.isEmpty {
-            ud.removeObject(forKey: AppConfig.openAIKeyUserDefaultsKey)
-        } else {
-            ud.set(trimmedKey, forKey: AppConfig.openAIKeyUserDefaultsKey)
-        }
-
         if llmProvider == .custom {
+            LLMCredentialStore.setUsesCustomCredentials(true)
             let base = customBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
             let model = customModel.trimmingCharacters(in: .whitespacesAndNewlines)
             ud.set(base, forKey: AppConfig.openAIBaseURLKey)
@@ -660,8 +642,9 @@ struct OnboardingFlowView: View {
                 ud.set(model, forKey: AppConfig.openAIModelKey)
             }
         } else {
-            ud.set(llmProvider.defaultBaseURL, forKey: AppConfig.openAIBaseURLKey)
-            ud.set(llmProvider.defaultModel, forKey: AppConfig.openAIModelKey)
+            LLMCredentialStore.setUsesCustomCredentials(false)
+            ud.removeObject(forKey: AppConfig.openAIBaseURLKey)
+            ud.removeObject(forKey: AppConfig.openAIModelKey)
         }
         ud.set(llmProvider.rawValue, forKey: AppConfig.llmProviderRawKey)
     }

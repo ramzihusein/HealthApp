@@ -1,6 +1,6 @@
 import Foundation
 
-/// Generates structured workout + meal JSON. Uses OpenAI-compatible HTTP API when `OPENAI_API_KEY` is set in Info.plist (or `HealthAppOpenAIKey`); otherwise uses a deterministic mock plan aligned to profile goals.
+/// Generates structured workout + meal JSON. Uses OpenAI-compatible HTTP API when a key is available (Settings override, embedded Info.plist value from build settings, or `OPENAI_API_KEY` env); otherwise uses a deterministic mock plan.
 enum PlanGenerationService {
     enum GenerationError: LocalizedError {
         case missingAPIKey
@@ -30,7 +30,7 @@ enum PlanGenerationService {
             case .planDecodeFailed(let detail):
                 return "The plan data could not be read (\(detail)). Try generating again, or use a different model."
             case .requestTimedOut:
-                return "The request timed out before the model finished. Your plan JSON is large, so the API can take 1-3+ minutes. Try again on Wi-Fi, wait, or clear the API key to use the built-in offline plan while you troubleshoot."
+                return "The request timed out before the model finished. Your plan JSON is large, so the API can take 1-3+ minutes. Try again on Wi-Fi or wait; without a working key the app falls back to offline mock plans."
             case .network(let msg):
                 return "Network error: \(msg)"
             }
@@ -59,34 +59,11 @@ enum PlanGenerationService {
         return min(secs, 120)
     }
 
-    private static var openAIKey: String? {
-        let ud = UserDefaults.standard
-        if let s = ud.string(forKey: AppConfig.openAIKeyUserDefaultsKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
-            return s
-        }
-        if let s = Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIKey") as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return s
-        }
-        return ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
-    }
+    private static var openAIKey: String? { LLMCredentialStore.resolvedOpenAIKey() }
 
-    private static var openAIBaseURL: String {
-        let ud = UserDefaults.standard
-        if let s = ud.string(forKey: AppConfig.openAIBaseURLKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
-            return s
-        }
-        return (Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIBaseURL") as? String)
-            ?? "https://api.openai.com/v1"
-    }
+    private static var openAIBaseURL: String { LLMCredentialStore.resolvedBaseURL() }
 
-    private static var openAIModel: String {
-        let ud = UserDefaults.standard
-        if let s = ud.string(forKey: AppConfig.openAIModelKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
-            return s
-        }
-        return (Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIModel") as? String)
-            ?? "gpt-4o-mini"
-    }
+    private static var openAIModel: String { LLMCredentialStore.resolvedModel() }
 
     static func generatePlans(for profile: UserHealthProfile) async throws -> (workoutJSON: String, mealJSON: String, model: String?) {
         if let key = openAIKey, !key.isEmpty {

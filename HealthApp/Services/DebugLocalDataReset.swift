@@ -38,6 +38,7 @@ enum DebugLocalDataReset {
         ud.removeObject(forKey: AppConfig.openAIBaseURLKey)
         ud.removeObject(forKey: AppConfig.openAIModelKey)
         ud.removeObject(forKey: AppConfig.llmProviderRawKey)
+        ud.removeObject(forKey: AppConfig.useCustomOpenAILLMKey)
     }
     #endif
 }

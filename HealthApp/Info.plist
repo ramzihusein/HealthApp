@@ -28,7 +28,7 @@
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>HealthAppOpenAIKey</key>
-	<string></string>
+	<string>$(HEALTH_APP_EMBEDDED_OPENAI_KEY)</string>
 	<key>HealthAppOpenAIBaseURL</key>
 	<string>https://api.openai.com/v1</string>
 	<key>HealthAppOpenAIModel</key>

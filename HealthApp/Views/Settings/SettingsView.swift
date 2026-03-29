@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var profiles: [UserHealthProfile]
 
+    @State private var useCustomLLM = false
     @State private var apiKey = ""
     @State private var baseURL = ""
     @State private var modelId = ""
@@ -40,22 +41,33 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     FocusCard {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("LLM (OpenAI-compatible)")
+                            Text("AI plan generation")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("Key is stored in this app’s UserDefaults on device only—not in Git. For production, prefer Keychain.")
+                            Text("By default the app uses the built-in connection. Turn on the option below only if you want to bill your own OpenAI (or compatible) account.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
-                            APIKeyField(text: $apiKey, placeholder: "API key")
 
-                            LLMApiKeyHelpDisclosure(provider: tutorialProvider)
+                            Toggle("Use my own API credentials", isOn: $useCustomLLM)
+                                .tint(FocusPalette.accent)
+                                .foregroundStyle(FocusPalette.textPrimary)
 
-                            TextField("Base URL (optional)", text: $baseURL)
-                                .textFieldStyle(.roundedBorder)
-                                .autocorrectionDisabled()
-                            TextField("Model id (optional)", text: $modelId)
-                                .textFieldStyle(.roundedBorder)
-                                .autocorrectionDisabled()
+                            if useCustomLLM {
+                                Text("Key and endpoint are stored in UserDefaults on this device only. Prefer Keychain for production apps.")
+                                    .font(.caption2)
+                                    .foregroundStyle(FocusPalette.textSecondary)
+                                APIKeyField(text: $apiKey, placeholder: "Your API key")
+
+                                LLMApiKeyHelpDisclosure(provider: tutorialProvider)
+
+                                TextField("Base URL (optional)", text: $baseURL)
+                                    .textFieldStyle(.roundedBorder)
+                                    .autocorrectionDisabled()
+                                TextField("Model id (optional)", text: $modelId)
+                                    .textFieldStyle(.roundedBorder)
+                                    .autocorrectionDisabled()
+                            }
+
                             Button("Save API settings") { saveAPISettings() }
                                 .buttonStyle(FocusPrimaryButtonStyle())
                         }
@@ -66,7 +78,7 @@ struct SettingsView: View {
                             Text("Regenerate plans")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("Uses your current profile and saved API settings to request new workout and meal plans. Mock templates are used if no API key is set.")
+                            Text("Uses your current profile. If no API key is available (built-in or your own), the app uses offline mock templates.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
                             Button(action: regeneratePlans) {
@@ -177,6 +189,7 @@ struct SettingsView: View {
 
     private func loadFromStorageAndProfile() {
         let ud = UserDefaults.standard
+        useCustomLLM = LLMCredentialStore.isUsingCustomCredentials
         apiKey = ud.string(forKey: AppConfig.openAIKeyUserDefaultsKey) ?? ""
         baseURL = ud.string(forKey: AppConfig.openAIBaseURLKey) ?? ""
         modelId = ud.string(forKey: AppConfig.openAIModelKey) ?? ""
@@ -188,11 +201,23 @@ struct SettingsView: View {
 
     private func saveAPISettings() {
         let ud = UserDefaults.standard
-        ud.set(apiKey.trimmingCharacters(in: .whitespacesAndNewlines), forKey: AppConfig.openAIKeyUserDefaultsKey)
-        let bu = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let mid = modelId.trimmingCharacters(in: .whitespacesAndNewlines)
-        if bu.isEmpty { ud.removeObject(forKey: AppConfig.openAIBaseURLKey) } else { ud.set(bu, forKey: AppConfig.openAIBaseURLKey) }
-        if mid.isEmpty { ud.removeObject(forKey: AppConfig.openAIModelKey) } else { ud.set(mid, forKey: AppConfig.openAIModelKey) }
+        LLMCredentialStore.setUsesCustomCredentials(useCustomLLM)
+        if useCustomLLM {
+            let k = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if k.isEmpty {
+                ud.removeObject(forKey: AppConfig.openAIKeyUserDefaultsKey)
+            } else {
+                ud.set(k, forKey: AppConfig.openAIKeyUserDefaultsKey)
+            }
+            let bu = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            let mid = modelId.trimmingCharacters(in: .whitespacesAndNewlines)
+            if bu.isEmpty { ud.removeObject(forKey: AppConfig.openAIBaseURLKey) } else { ud.set(bu, forKey: AppConfig.openAIBaseURLKey) }
+            if mid.isEmpty { ud.removeObject(forKey: AppConfig.openAIModelKey) } else { ud.set(mid, forKey: AppConfig.openAIModelKey) }
+        } else {
+            ud.removeObject(forKey: AppConfig.openAIKeyUserDefaultsKey)
+            ud.removeObject(forKey: AppConfig.openAIBaseURLKey)
+            ud.removeObject(forKey: AppConfig.openAIModelKey)
+        }
         persistProfilePreferences()
         savedNotice = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { savedNotice = false }
@@ -241,6 +266,7 @@ struct SettingsView: View {
         debugResetError = nil
         do {
             try DebugLocalDataReset.wipeAllLocalData(modelContext: modelContext)
+            useCustomLLM = false
             apiKey = ""
             baseURL = ""
             modelId = ""
