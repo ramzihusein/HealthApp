@@ -9,6 +9,9 @@ enum PlanGenerationService {
         case badResponse(Int)
         case emptyChoices
         case invalidJSON
+        /// Client-side wait exceeded (URLSession) or repeated timeouts.
+        case requestTimedOut
+        case network(String)
 
         var errorDescription: String? {
             switch self {
@@ -22,11 +25,26 @@ enum PlanGenerationService {
             case .badResponse(let c): return "API returned status \(c)."
             case .emptyChoices: return "No completion text from model."
             case .invalidJSON: return "Model output was not valid JSON."
+            case .requestTimedOut:
+                return "The request timed out before the model finished. Your plan JSON is large, so the API can take 1-3+ minutes. Try again on Wi-Fi, wait, or clear the API key to use the built-in offline plan while you troubleshoot."
+            case .network(let msg):
+                return "Network error: \(msg)"
             }
         }
     }
 
     private static let maxLLMHTTPAttempts = 4
+
+    /// Longer timeouts than `URLSession.shared` (default ~60s), plus room for big JSON completions.
+    private static let llmURLSession: URLSession = {
+        let c = URLSessionConfiguration.ephemeral
+        c.timeoutIntervalForRequest = 240
+        c.timeoutIntervalForResource = 900
+        c.waitsForConnectivity = true
+        return URLSession(configuration: c)
+    }()
+
+    private static let llmNetworkRetries = 3
 
     /// Parses `Retry-After` when the server sends delay in seconds (common for 429).
     private static func retryAfterSeconds(from response: HTTPURLResponse) -> TimeInterval? {
@@ -123,6 +141,7 @@ enum PlanGenerationService {
         let url = URL(string: "\(openAIBaseURL)/chat/completions")!
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
+        req.timeoutInterval = 0
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
@@ -137,19 +156,18 @@ enum PlanGenerationService {
         ]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        var attempt = 0
+        var rateLimitAttempt = 0
         while true {
-            let (data, resp) = try await URLSession.shared.data(for: req)
-            guard let http = resp as? HTTPURLResponse else { throw GenerationError.badResponse(-1) }
+            let (data, http) = try await sendChatCompletionWithRetries(req)
 
             if (200...299).contains(http.statusCode) {
                 return try parseChatCompletionJSON(data: data)
             }
 
-            if http.statusCode == 429, attempt + 1 < maxLLMHTTPAttempts {
-                let delay = retryAfterSeconds(from: http) ?? min(Double(1 << attempt), 30)
+            if http.statusCode == 429, rateLimitAttempt + 1 < maxLLMHTTPAttempts {
+                let delay = retryAfterSeconds(from: http) ?? min(Double(1 << rateLimitAttempt), 30)
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-                attempt += 1
+                rateLimitAttempt += 1
                 continue
             }
 
@@ -158,6 +176,31 @@ enum PlanGenerationService {
             }
             throw GenerationError.badResponse(http.statusCode)
         }
+    }
+
+    /// Performs the HTTP call with a patient URLSession and a few retries on timeout / dropped connection.
+    private static func sendChatCompletionWithRetries(_ req: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let retryCodes: Set<URLError.Code> = [.timedOut, .networkConnectionLost, .cannotConnectToHost, .dnsLookupFailed, .notConnectedToInternet]
+        for networkAttempt in 0..<llmNetworkRetries {
+            do {
+                let (data, resp) = try await llmURLSession.data(for: req)
+                guard let http = resp as? HTTPURLResponse else { throw GenerationError.badResponse(-1) }
+                return (data, http)
+            } catch let urlError as URLError {
+                if retryCodes.contains(urlError.code), networkAttempt + 1 < llmNetworkRetries {
+                    let backoff = 3.0 * Double(networkAttempt + 1)
+                    try await Task.sleep(nanoseconds: UInt64(backoff * 1_000_000_000))
+                    continue
+                }
+                if urlError.code == .timedOut {
+                    throw GenerationError.requestTimedOut
+                }
+                throw GenerationError.network(urlError.localizedDescription)
+            } catch {
+                throw GenerationError.network(error.localizedDescription)
+            }
+        }
+        throw GenerationError.requestTimedOut
     }
 
     private static func parseChatCompletionJSON(data: Data) throws -> (String, String) {
