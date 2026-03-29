@@ -4,7 +4,8 @@ import Foundation
 enum PlanGenerationService {
     enum GenerationError: LocalizedError {
         case missingAPIKey
-        case rateLimited
+        /// Optional message from JSON body (e.g. OpenAI `error.message`) to distinguish quota vs RPM limits.
+        case rateLimited(providerDetail: String?)
         case badResponse(Int)
         case emptyChoices
         case invalidJSON
@@ -12,8 +13,12 @@ enum PlanGenerationService {
         var errorDescription: String? {
             switch self {
             case .missingAPIKey: return "No API key configured."
-            case .rateLimited:
-                return "The API rate limit was hit (HTTP 429). Wait a minute or two and try again, or check your provider's usage limits and billing."
+            case .rateLimited(let detail):
+                let tail = "Wait several minutes, avoid tapping Regenerate many times in a row, and check your provider's dashboard for usage, rate limits, and billing."
+                if let d = detail?.trimmingCharacters(in: .whitespacesAndNewlines), !d.isEmpty {
+                    return "\(d)\n\n\(tail)"
+                }
+                return "Rate or usage limit exceeded (HTTP 429). \(tail)"
             case .badResponse(let c): return "API returned status \(c)."
             case .emptyChoices: return "No completion text from model."
             case .invalidJSON: return "Model output was not valid JSON."
@@ -137,7 +142,7 @@ enum PlanGenerationService {
             }
 
             if http.statusCode == 429 {
-                throw GenerationError.rateLimited
+                throw GenerationError.rateLimited(providerDetail: Self.providerErrorMessage(from: data))
             }
             throw GenerationError.badResponse(http.statusCode)
         }
@@ -171,6 +176,16 @@ enum PlanGenerationService {
         let wStr = String(data: wpData, encoding: .utf8) ?? ""
         let mStr = String(data: mpData, encoding: .utf8) ?? ""
         return (wStr, mStr)
+    }
+
+    /// OpenAI-compatible `{ "error": { "message": "..." } }` and similar.
+    private static func providerErrorMessage(from data: Data) -> String? {
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        if let err = obj["error"] as? [String: Any] {
+            if let msg = err["message"] as? String, !msg.isEmpty { return msg }
+            if let typ = err["type"] as? String, !typ.isEmpty { return typ }
+        }
+        return nil
     }
 }
 
