@@ -393,7 +393,7 @@ private struct DayProgressDetailSheet: View {
         if !lifts.isEmpty {
             let ok = lifts.allSatisfy { ex in
                 guard let s = sessions.first(where: { $0.exerciseId == ex.id }) else { return false }
-                !s.sets.isEmpty && !s.sets.contains { $0.reps <= 0 }
+                return !s.sets.isEmpty && !s.sets.contains { $0.reps <= 0 }
             }
             parts.append("strength \(ok ? "✓" : "✗")")
         }
