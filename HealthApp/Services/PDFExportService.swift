@@ -97,7 +97,7 @@ enum PDFExportService {
             state.drawLine("Calorie goal from plan: \(goalCal.map(String.init) ?? "—") kcal", font: .systemFont(ofSize: 11), color: muted)
             state.advance(4)
 
-            let colW: CGFloat = [100, 88, 72, 88, 72]
+            let colW: [CGFloat] = [100, 88, 72, 88, 72]
             let headers = ["Date", "Calories", "Cal goal?", "Workout?", "Weight"]
             state.drawTableRow(strings: headers, fonts: Array(repeating: .boldSystemFont(ofSize: 9), count: 5), widths: colW, accent: accent)
 
