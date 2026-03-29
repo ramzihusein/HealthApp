@@ -16,6 +16,12 @@ struct WorkoutDayDetailView: View {
     private var dayStart: Date { CalendarDay.startOfDay(date) }
     private var dayKey: String { DayKey.string(for: dayStart) }
 
+    private var planDay: WorkoutDayDTO? {
+        guard let plan = workoutPlan, let week = plan.weeks.first else { return nil }
+        let idx = CalendarDay.planDayIndex(for: dayStart)
+        return week.days.first(where: { $0.dayIndex == idx })
+    }
+
     private var sessionsForDay: [WorkoutSessionLog] {
         allSessions.filter { $0.dayKey == dayKey }.sorted { $0.sortOrder < $1.sortOrder }
     }
@@ -38,18 +44,88 @@ struct WorkoutDayDetailView: View {
                 .listRowBackground(FocusPalette.surfaceElevated)
             }
 
-            if let week = workoutPlan?.weeks.first,
-               let day = week.days.first(where: { $0.dayIndex == CalendarDay.planDayIndex(for: dayStart) }),
-               day.exercises.isEmpty {
+            if let day = planDay, !day.hasPlannedWork {
                 Section {
-                    Text("Scheduled rest. Easy walk or mobility still counts.")
+                    Text("Scheduled rest. Optional easy walk from your plan still counts as movement.")
+                        .foregroundStyle(FocusPalette.textSecondary)
+                }
+            }
+
+            if let day = planDay, !day.liftingExercisesResolved().isEmpty {
+                Section {
+                    ForEach(day.liftingExercisesResolved()) { ex in
+                        NavigationLink {
+                            ExerciseGuideDetailView(exercise: ex)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(ex.name)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(FocusPalette.textPrimary)
+                                Text("\(ex.sets)× \(ex.reps)")
+                                    .font(.caption2)
+                                    .foregroundStyle(FocusPalette.textSecondary)
+                                if ex.steps != nil, !(ex.steps ?? []).isEmpty {
+                                    Text("Tap for steps & diagram")
+                                        .font(.caption2)
+                                        .foregroundStyle(FocusPalette.accent)
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .listRowBackground(FocusPalette.surfaceElevated)
+                    }
+                } header: {
+                    Text("Strength plan")
+                        .foregroundStyle(FocusPalette.textSecondary)
+                }
+            }
+
+            if let day = planDay, !day.cardioBlocksResolved().isEmpty {
+                Section {
+                    ForEach(day.cardioBlocksResolved()) { b in
+                        CardioBlockCard(block: b)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                            .listRowBackground(Color.clear)
+                    }
+                } header: {
+                    Text("Cardio plan")
+                        .foregroundStyle(FocusPalette.textSecondary)
+                }
+            }
+
+            if let day = planDay, let stretch = day.stretchSession, !stretch.items.isEmpty {
+                Section {
+                    ForEach(stretch.items) { item in
+                        StretchGuideCard(item: item)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                            .listRowBackground(Color.clear)
+                    }
+                } header: {
+                    Text(stretch.title ?? "Stretching")
+                        .foregroundStyle(FocusPalette.textSecondary)
+                }
+            }
+
+            if let day = planDay, !day.mobilityExercisesLegacy().isEmpty {
+                Section {
+                    ForEach(day.mobilityExercisesLegacy()) { ex in
+                        NavigationLink {
+                            ExerciseGuideDetailView(exercise: ex)
+                        } label: {
+                            Text(ex.name)
+                                .foregroundStyle(FocusPalette.textPrimary)
+                        }
+                        .listRowBackground(FocusPalette.surfaceElevated)
+                    }
+                } header: {
+                    Text("Mobility (legacy)")
                         .foregroundStyle(FocusPalette.textSecondary)
                 }
             }
 
             Section {
                 if sessionsForDay.isEmpty {
-                    Text("No lifts scheduled for this weekday, or open the plan from onboarding.")
+                    Text("No lifts logged yet for this day. Complete sets below when you train.")
                         .font(.footnote)
                         .foregroundStyle(FocusPalette.textSecondary)
                 }
@@ -57,7 +133,7 @@ struct WorkoutDayDetailView: View {
                     ExerciseLogCard(session: session, usePounds: usePounds)
                 }
             } header: {
-                Text("Log performance")
+                Text("Log performance (strength)")
                     .foregroundStyle(FocusPalette.textSecondary)
             }
         }

@@ -15,6 +15,14 @@ final class UserHealthProfile {
     var injuriesNotes: String
     var dailyCookingMinutes: Int
     var weeklyMealBudget: Double
+    /// Typical time available for a workout session (strength + mobility buffer).
+    var workoutSessionMinutes: Int
+    /// Target lifting sessions per week (planner guidance).
+    var liftDaysPerWeek: Int
+    /// Target cardio sessions per week.
+    var cardioDaysPerWeek: Int
+    /// Comma-separated equipment tags, e.g. "dumbbells,machines,treadmill"
+    var equipmentCSV: String
     /// "metric" or "imperial"
     var measurementSystemRaw: String
     /// ISO currency code, e.g. USD, EUR
@@ -35,6 +43,10 @@ final class UserHealthProfile {
         injuriesNotes: String = "",
         dailyCookingMinutes: Int = 45,
         weeklyMealBudget: Double = 100,
+        workoutSessionMinutes: Int = 45,
+        liftDaysPerWeek: Int = 4,
+        cardioDaysPerWeek: Int = 3,
+        equipmentCSV: String = "",
         measurementSystemRaw: String = "imperial",
         currencyCode: String = "USD",
         createdAt: Date = .now,
@@ -51,6 +63,10 @@ final class UserHealthProfile {
         self.injuriesNotes = injuriesNotes
         self.dailyCookingMinutes = dailyCookingMinutes
         self.weeklyMealBudget = weeklyMealBudget
+        self.workoutSessionMinutes = workoutSessionMinutes
+        self.liftDaysPerWeek = liftDaysPerWeek
+        self.cardioDaysPerWeek = cardioDaysPerWeek
+        self.equipmentCSV = equipmentCSV
         self.measurementSystemRaw = measurementSystemRaw
         self.currencyCode = currencyCode
         self.createdAt = createdAt

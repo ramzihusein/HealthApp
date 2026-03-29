@@ -11,11 +11,13 @@ enum WorkoutSessionBootstrapper {
         let dk = DayKey.string(for: dayStart)
         let idx = CalendarDay.planDayIndex(for: dayStart)
         guard let week = plan.weeks.first,
-              let day = week.days.first(where: { $0.dayIndex == idx }),
-              !day.exercises.isEmpty
+              let day = week.days.first(where: { $0.dayIndex == idx })
         else { return }
 
-        for (i, ex) in day.exercises.enumerated() {
+        let lifts = day.liftingExercisesResolved()
+        guard !lifts.isEmpty else { return }
+
+        for (i, ex) in lifts.enumerated() {
             let exId = ex.id
             let fd = FetchDescriptor<WorkoutSessionLog>(
                 predicate: #Predicate { $0.dayKey == dk && $0.exerciseId == exId }

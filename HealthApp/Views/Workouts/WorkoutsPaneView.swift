@@ -5,6 +5,7 @@ struct WorkoutsPaneView: View {
     @Query(sort: \StoredGeneratedPlans.generatedAt, order: .reverse) private var plans: [StoredGeneratedPlans]
     @State private var weekAnchor = Date()
     @State private var selectedDay: Date?
+    @State private var guideExercise: ExerciseTemplateDTO?
 
     private var planDTO: WorkoutPlanDTO? {
         guard let p = plans.first else { return nil }
@@ -32,7 +33,10 @@ struct WorkoutsPaneView: View {
                     weekStrip
 
                     if let d = selectedDay {
-                        plannedExercisesSection(for: d)
+                        plannedStrengthSection(for: d)
+                        plannedCardioSection(for: d)
+                        plannedStretchSection(for: d)
+                        plannedMobilityLegacySection(for: d)
 
                         NavigationLink {
                             WorkoutDayDetailView(date: d, workoutPlan: planDTO)
@@ -61,6 +65,9 @@ struct WorkoutsPaneView: View {
             .background(FocusScreenBackground())
             .navigationTitle("Training week")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(item: $guideExercise) { ex in
+                ExerciseGuideDetailView(exercise: ex)
+            }
             .onAppear {
                 if selectedDay == nil {
                     selectedDay = CalendarDay.startOfDay(Date())
@@ -69,20 +76,95 @@ struct WorkoutsPaneView: View {
         }
     }
 
+    private func dayModel(for d: Date) -> WorkoutDayDTO? {
+        guard let plan = planDTO, let week = plan.weeks.first else { return nil }
+        let idx = CalendarDay.planDayIndex(for: d)
+        return week.days.first(where: { $0.dayIndex == idx })
+    }
+
     @ViewBuilder
-    private func plannedExercisesSection(for d: Date) -> some View {
-        let exercises = exercisesForDay(d)
-        if exercises.isEmpty {
+    private func plannedStrengthSection(for d: Date) -> some View {
+        let lifts = dayModel(for: d)?.liftingExercisesResolved() ?? []
+        if lifts.isEmpty {
             EmptyView()
         } else {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Today’s plan")
+                Label("Strength / lifting", systemImage: "figure.strengthtraining.traditional")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FocusPalette.textSecondary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(exercises) { ex in
-                            exercisePlanChip(ex)
+                        ForEach(lifts) { ex in
+                            Button {
+                                guideExercise = ex
+                            } label: {
+                                exercisePlanChip(ex)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                Text("Tap an exercise for steps and diagram.")
+                    .font(.caption2)
+                    .foregroundStyle(FocusPalette.textSecondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func plannedCardioSection(for d: Date) -> some View {
+        let blocks = dayModel(for: d)?.cardioBlocksResolved() ?? []
+        if blocks.isEmpty {
+            EmptyView()
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Cardio", systemImage: "figure.run")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textSecondary)
+                VStack(spacing: 10) {
+                    ForEach(blocks) { b in
+                        CardioBlockCard(block: b)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func plannedStretchSection(for d: Date) -> some View {
+        if let s = dayModel(for: d)?.stretchSession, !s.items.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(s.title ?? "Stretching", systemImage: "figure.flexibility")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textSecondary)
+                VStack(spacing: 10) {
+                    ForEach(s.items) { item in
+                        StretchGuideCard(item: item)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func plannedMobilityLegacySection(for d: Date) -> some View {
+        let mob = dayModel(for: d)?.mobilityExercisesLegacy() ?? []
+        if mob.isEmpty {
+            EmptyView()
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Mobility (legacy list)", systemImage: "figure.flexibility")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textSecondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(mob) { ex in
+                            Button {
+                                guideExercise = ex
+                            } label: {
+                                exercisePlanChip(ex)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -114,12 +196,6 @@ struct WorkoutsPaneView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(kind.accent.opacity(0.35), lineWidth: 1)
         )
-    }
-
-    private func exercisesForDay(_ d: Date) -> [ExerciseTemplateDTO] {
-        guard let plan = planDTO, let week = plan.weeks.first else { return [] }
-        let idx = CalendarDay.planDayIndex(for: d)
-        return week.days.first(where: { $0.dayIndex == idx })?.exercises ?? []
     }
 
     private var weekStrip: some View {
@@ -195,13 +271,16 @@ struct WorkoutsPaneView: View {
     }
 
     private func subtitleForDay(_ d: Date) -> String {
-        guard let plan = planDTO, let week = plan.weeks.first else { return "Log sets when you train" }
-        let idx = CalendarDay.planDayIndex(for: d)
-        if let day = week.days.first(where: { $0.dayIndex == idx }) {
-            if day.exercises.isEmpty { return "Rest — light walk optional" }
-            return "\(day.exercises.count) exercises · \(day.name)"
-        }
-        return "Log sets when you train"
+        guard let day = dayModel(for: d) else { return "Log sets when you train" }
+        let l = day.liftingExercisesResolved().count
+        let c = day.cardioBlocksResolved().count
+        if !day.hasPlannedWork { return "Rest — optional easy movement" }
+        var parts: [String] = []
+        if l > 0 { parts.append("\(l) strength moves") }
+        if c > 0 { parts.append("\(c) cardio block(s)") }
+        if day.stretchSession != nil { parts.append("stretching") }
+        let tail = parts.joined(separator: " · ")
+        return "\(day.name) — \(tail)"
     }
 
     private func weekRangeLabel(_ days: [Date]) -> String {

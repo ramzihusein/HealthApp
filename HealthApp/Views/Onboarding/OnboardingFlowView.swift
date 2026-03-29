@@ -23,6 +23,10 @@ struct OnboardingFlowView: View {
     @State private var currencyCode = "USD"
     @State private var isGenerating = false
     @State private var errorMessage: String?
+    @State private var workoutSessionMinutes = 45
+    @State private var liftDaysPerWeek = 4
+    @State private var cardioDaysPerWeek = 3
+    @State private var equipmentSelected: Set<String> = []
 
     private let goalOptions = [
         "Lose weight",
@@ -31,6 +35,23 @@ struct OnboardingFlowView: View {
         "Improve endurance",
         "General health",
         "Rehab / return to activity"
+    ]
+
+    private let equipmentOptions: [(id: String, label: String)] = [
+        ("dumbbells", "Dumbbells"),
+        ("barbell", "Barbell & rack"),
+        ("machines", "Weight machines"),
+        ("cables", "Cable station"),
+        ("kettlebells", "Kettlebells"),
+        ("resistance_bands", "Resistance bands"),
+        ("pullup_bar", "Pull-up bar"),
+        ("treadmill", "Treadmill"),
+        ("stationary_bike", "Exercise bike"),
+        ("elliptical", "Elliptical"),
+        ("rowing_erg", "Rowing machine"),
+        ("running_paths", "Outdoor running / paths"),
+        ("swim_access", "Pool / swim"),
+        ("bodyweight_only", "Bodyweight only")
     ]
 
     private var weightLbBinding: Binding<Double> {
@@ -127,6 +148,11 @@ struct OnboardingFlowView: View {
                 budget = p.weeklyMealBudget
                 useImperial = p.measurementSystemRaw == "imperial"
                 currencyCode = CurrencyOption(rawValue: p.currencyCode) != nil ? p.currencyCode : "USD"
+                workoutSessionMinutes = p.workoutSessionMinutes
+                liftDaysPerWeek = p.liftDaysPerWeek
+                cardioDaysPerWeek = p.cardioDaysPerWeek
+                let eqParts = p.equipmentCSV.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                equipmentSelected = Set(eqParts)
             }
         }
         .onChange(of: llmProvider) { old, p in
@@ -144,8 +170,9 @@ struct OnboardingFlowView: View {
         switch step {
         case 0: return "Plan generation"
         case 1: return "Your baseline"
-        case 2: return "Goals & safety"
-        case 3: return "Kitchen & budget"
+        case 2: return "Training & equipment"
+        case 3: return "Goals & safety"
+        case 4: return "Kitchen & budget"
         default: return "Build your plans"
         }
     }
@@ -154,8 +181,9 @@ struct OnboardingFlowView: View {
         switch step {
         case 0: return "Choose a provider and optional API key. You can change this later in Settings."
         case 1: return "We use this to size training and nutrition — not to judge."
-        case 2: return "Pick what matters now. You can change this later."
-        case 3: return "Helps the planner respect real life."
+        case 2: return "Time, weekly frequency, and gear so strength and cardio stay realistic."
+        case 3: return "Pick what matters now. You can change this later."
+        case 4: return "Helps the planner respect real life."
         default: return "We’ll build your workout and meal plan from your answers."
         }
     }
@@ -168,8 +196,10 @@ struct OnboardingFlowView: View {
         case 1:
             stepBaseline
         case 2:
-            stepGoals
+            stepTraining
         case 3:
+            stepGoals
+        case 4:
             stepKitchen
         default:
             stepFinish
@@ -321,6 +351,49 @@ struct OnboardingFlowView: View {
         }
     }
 
+    private var stepTraining: some View {
+        FocusCard {
+            VStack(alignment: .leading, spacing: 16) {
+                labeledStepper("Typical workout time (minutes)", value: $workoutSessionMinutes, range: 20...120)
+                labeledStepper("Strength / lifting days per week", value: $liftDaysPerWeek, range: 2...6)
+                labeledStepper("Cardio sessions per week", value: $cardioDaysPerWeek, range: 0...7)
+                Text("Equipment available")
+                    .font(.headline)
+                    .foregroundStyle(FocusPalette.textPrimary)
+                Text("Select everything you can use. Plans avoid gear you do not have.")
+                    .font(.caption)
+                    .foregroundStyle(FocusPalette.textSecondary)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(equipmentOptions, id: \.id) { opt in
+                        equipmentChip(opt)
+                    }
+                }
+            }
+        }
+    }
+
+    private func equipmentChip(_ opt: (id: String, label: String)) -> some View {
+        let on = equipmentSelected.contains(opt.id)
+        return Button {
+            if on { equipmentSelected.remove(opt.id) } else { equipmentSelected.insert(opt.id) }
+        } label: {
+            Text(opt.label)
+                .font(.caption.weight(.medium))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(on ? FocusPalette.background : FocusPalette.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .padding(.horizontal, 6)
+                .background(on ? FocusPalette.accent : FocusPalette.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(on ? Color.clear : FocusPalette.border, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var stepGoals: some View {
         VStack(alignment: .leading, spacing: 16) {
             FocusCard {
@@ -403,7 +476,7 @@ struct OnboardingFlowView: View {
                     .buttonStyle(FocusSecondaryButtonStyle())
             }
             Spacer(minLength: 0)
-            if step < 4 {
+            if step < 5 {
                 Button("Continue") {
                     if step == 0 { persistLLMSettingsFromOnboarding() }
                     step += 1
@@ -509,6 +582,10 @@ struct OnboardingFlowView: View {
         p.weeklyMealBudget = budget
         p.measurementSystemRaw = useImperial ? "imperial" : "metric"
         p.currencyCode = currencyCode
+        p.workoutSessionMinutes = workoutSessionMinutes
+        p.liftDaysPerWeek = liftDaysPerWeek
+        p.cardioDaysPerWeek = cardioDaysPerWeek
+        p.equipmentCSV = equipmentSelected.sorted().joined(separator: ",")
         p.updatedAt = .now
 
         Task {

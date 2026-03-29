@@ -35,6 +35,8 @@
 		F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */; };
 		F1000000000000000000001C /* APIKeyField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001D /* APIKeyField.swift */; };
 		F1000000000000000000001D /* DebugLocalDataReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001E /* DebugLocalDataReset.swift */; };
+		F1000000000000000000001E /* MockPlanBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001F /* MockPlanBuilder.swift */; };
+		F1000000000000000000001F /* ExerciseGuideViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000020 /* ExerciseGuideViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -68,6 +70,8 @@
 		F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMApiKeyHelpDisclosure.swift; sourceTree = "<group>"; };
 		F2000000000000000000001D /* APIKeyField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyField.swift; sourceTree = "<group>"; };
 		F2000000000000000000001E /* DebugLocalDataReset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLocalDataReset.swift; sourceTree = "<group>"; };
+		F2000000000000000000001F /* MockPlanBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockPlanBuilder.swift; sourceTree = "<group>"; };
+		F20000000000000000000020 /* ExerciseGuideViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseGuideViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -150,6 +154,7 @@
 				F2000000000000000000000A /* PDFExportService.swift */,
 				F2000000000000000000000B /* WorkoutSessionBootstrapper.swift */,
 				F2000000000000000000001E /* DebugLocalDataReset.swift */,
+				F2000000000000000000001F /* MockPlanBuilder.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -193,6 +198,7 @@
 				F2000000000000000000000E /* WorkoutsPaneView.swift */,
 				F2000000000000000000000F /* WorkoutDayDetailView.swift */,
 				F20000000000000000000010 /* SetEntryRow.swift */,
+				F20000000000000000000020 /* ExerciseGuideViews.swift */,
 			);
 			path = Workouts;
 			sourceTree = "<group>";
@@ -333,6 +339,8 @@
 				F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */,
 				F1000000000000000000001C /* APIKeyField.swift in Sources */,
 				F1000000000000000000001D /* DebugLocalDataReset.swift in Sources */,
+				F1000000000000000000001E /* MockPlanBuilder.swift in Sources */,
+				F1000000000000000000001F /* ExerciseGuideViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

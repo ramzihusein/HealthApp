@@ -140,7 +140,7 @@ struct DietPaneView: View {
                         .foregroundStyle(FocusPalette.textSecondary)
                 } else {
                     ForEach(mealsForSelectedDay) { meal in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             HStack {
                                 Text(meal.name)
                                     .font(.subheadline.weight(.semibold))
@@ -154,6 +154,15 @@ struct DietPaneView: View {
                             Text(meal.description)
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
+                            if let raw = meal.recipeURL?.trimmingCharacters(in: .whitespacesAndNewlines),
+                               let url = URL(string: raw),
+                               ["http", "https"].contains(url.scheme?.lowercased()) {
+                                Link(destination: url) {
+                                    Label("Recipe ideas / search", systemImage: "link")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .tint(FocusPalette.accent)
+                            }
                         }
                         .padding(.vertical, 8)
                     }

@@ -81,15 +81,23 @@ enum PlanGenerationService {
 
     private static func generateViaLLM(profile: UserHealthProfile, apiKey: String) async throws -> (String, String) {
         let system = """
-        You are a certified strength & conditioning and nutrition planning assistant. You synthesize evidence-based guidance. \
-        Output ONLY valid JSON with two top-level keys: "workoutPlan" and "mealPlan", matching these TypeScript shapes exactly (camelCase keys):
+        You are a certified strength & conditioning and nutrition planning assistant. Output ONLY valid JSON with top-level keys "workoutPlan" and "mealPlan" (camelCase).
 
-        workoutPlan: { programNotes?: string, weeks: { label: string, days: { dayIndex: number (0=Mon..6=Sun), name: string, exercises: { id: string, name: string, sets: number, reps: string, restSec?: number, notes?: string }[] }[] }[] }
+        WORKOUT STRUCTURE (critical):
+        - Use a sensible split (push/pull/legs, upper/lower, or bro split). Muscle groups trained the same day must make sense together.
+        - For EACH major muscle group trained that day: at least 3 distinct exercises AND at least 12 total working sets for that group (e.g. 4+4+4).
+        - Separate STRENGTH from CARDIO in the JSON: put all resistance exercises in "liftingExercises" (array). Put cardio in "cardioBlocks" (array), NOT mixed into lifting.
+        - "exercises" may be [] or duplicate liftingExercises for compatibility.
+        - Each lifting exercise: { id, name, sets, reps, restSec?, notes?, steps?: string[] (3-6 short cues), diagramURL?: string (https to a real instructional image if possible), muscleGroupsTrained?: string[] }.
+        - Each cardioBlock: { id, title, modality (walk|jog|run|bike|row|swim|elliptical|incline_walk only — NEVER yoga), durationMinutes, targetPace (e.g. mph, min/mile, or conversational), intensityNote?, instructions?: string[] }.
+        - Do NOT prescribe yoga as cardio. Stretching belongs in "stretchSession": { title?, items: [{ id, name, holdSeconds?, steps: string[], diagramURL? }] }.
+        - Respect equipmentAvailable; avoid machines the user does not have.
 
-        mealPlan: { targetDailyCalories: number, notes?: string, days: { dayIndex: number, meals: { id: string, name: string, description: string, approxCalories?: number }[] }[] }
+        workoutPlan: { programNotes?: string, weeks: [{ label: string, days: [{ dayIndex: 0-6 Mon-Sun, name: string, exercises: ExerciseTemplateDTO[], liftingExercises?: ExerciseTemplateDTO[], cardioBlocks?: CardioBlockDTO[], stretchSession?: StretchSessionDTO }] }] }
 
-        Respect injuries (avoid aggravating movements), time for cooking, weekly food budget, activity level, and stated goals. \
-        Keep exercise names practical for a typical gym or home setup.
+        mealPlan: { targetDailyCalories: number, notes?: string, days: [{ dayIndex: number, meals: [{ id, name, description, approxCalories?: number, recipeURL: string (required https link to a real recipe page or reputable recipe search URL) }] }] }
+
+        Align lift days and cardio days with the user's targets. Keep meals realistic for their cooking time and budget.
         """
 
         let userPayload: [String: Any] = [
@@ -103,7 +111,11 @@ enum PlanGenerationService {
             "injuriesNotes": profile.injuriesNotes,
             "dailyCookingMinutes": profile.dailyCookingMinutes,
             "weeklyMealBudget": profile.weeklyMealBudget,
-            "currencyCode": profile.currencyCode
+            "currencyCode": profile.currencyCode,
+            "workoutSessionMinutes": profile.workoutSessionMinutes,
+            "liftDaysPerWeek": profile.liftDaysPerWeek,
+            "cardioDaysPerWeek": profile.cardioDaysPerWeek,
+            "equipmentAvailable": profile.equipmentCSV.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         ]
         let user = (try? JSONSerialization.data(withJSONObject: userPayload))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
@@ -186,107 +198,5 @@ enum PlanGenerationService {
             if let typ = err["type"] as? String, !typ.isEmpty { return typ }
         }
         return nil
-    }
-}
-
-private enum MockPlanBuilder {
-    static func build(for profile: UserHealthProfile) -> (workout: WorkoutPlanDTO, meal: MealPlanDTO) {
-        let goals = profile.goals.map { $0.lowercased() }
-        let lose = goals.contains { $0.contains("lose") || $0.contains("fat") }
-        let gain = goals.contains { $0.contains("gain") || $0.contains("muscle") }
-        let flex = goals.contains { $0.contains("flex") }
-
-        var dayNames = ["Push / legs", "Pull / core", "Full body", "Active recovery", "Strength", "Conditioning", "Rest or walk"]
-        if flex { dayNames[3] = "Mobility & stretch" }
-
-        let exercises: [[ExerciseTemplateDTO]] = [
-            [
-                .init(id: "sq1", name: "Goblet squat", sets: 3, reps: "10-12", restSec: 90, notes: nil),
-                .init(id: "bp1", name: "DB bench press", sets: 3, reps: "8-10", restSec: 90, notes: nil),
-                .init(id: "rw1", name: "One-arm row", sets: 3, reps: "10 each", restSec: 75, notes: nil)
-            ],
-            [
-                .init(id: "dl1", name: "Romanian deadlift", sets: 3, reps: "8-10", restSec: 120, notes: nil),
-                .init(id: "pu1", name: "Lat pulldown or band pull-down", sets: 3, reps: "10-12", restSec: 75, notes: nil),
-                .init(id: "cu1", name: "Bicep curl", sets: 2, reps: "12-15", restSec: 60, notes: nil)
-            ],
-            [
-                .init(id: "lj1", name: "Split squat", sets: 3, reps: "10 each", restSec: 90, notes: nil),
-                .init(id: "oh1", name: "Overhead press", sets: 3, reps: "8-10", restSec: 90, notes: nil),
-                .init(id: "pl1", name: "Plank", sets: 3, reps: "45-60s", restSec: 60, notes: "Brace; stop if back pain")
-            ],
-            [
-                .init(id: "wk1", name: "Easy walk or bike", sets: 1, reps: "25-40 min", restSec: nil, notes: "Zone 2 pace")
-            ],
-            [
-                .init(id: "sq2", name: "Back squat or leg press", sets: 4, reps: "6-8", restSec: 150, notes: profile.injuriesNotes.isEmpty ? nil : "Adjust depth per comfort")
-            ],
-            [
-                .init(id: "br1", name: "Row erg or ski", sets: 5, reps: "3 min on / 1 off", restSec: nil, notes: "Moderate effort")
-            ],
-            []
-        ]
-
-        let days: [WorkoutDayDTO] = (0..<7).map { i in
-            let ex = i < exercises.count ? exercises[i] : []
-            return WorkoutDayDTO(dayIndex: i, name: dayNames[i], exercises: ex)
-        }
-
-        let week = WorkoutWeekDTO(label: "Week 1 — baseline", days: days)
-        let workout = WorkoutPlanDTO(
-            programNotes: buildWorkoutNotes(lose: lose, gain: gain, flex: flex, injuries: profile.injuriesNotes),
-            weeks: [week]
-        )
-
-        let bmrApprox = 10 * profile.weightKg + 6.25 * profile.heightCm - 5 * Double(profile.age) + 5
-        let activityMult: Double = switch profile.activityLevelRaw {
-        case "sedentary": 1.2
-        case "light": 1.35
-        case "moderate": 1.5
-        case "active": 1.7
-        case "very_active": 1.9
-        default: 1.45
-        }
-        var tdee = Int(bmrApprox * activityMult)
-        if lose { tdee = max(1400, tdee - 450) }
-        if gain { tdee += 350 }
-        tdee = max(1200, min(4500, tdee))
-
-        let mealDays: [MealDayDTO] = (0..<7).map { i in
-            let isRest = i == 6
-            let c1 = isRest ? max(tdee / 4, 300) : max(tdee / 3, 350)
-            let meals: [PlannedMealDTO] = [
-                .init(id: "m\(i)a", name: "Breakfast", description: "Greek yogurt, oats, berries; or eggs + whole grain toast", approxCalories: c1),
-                .init(id: "m\(i)b", name: "Lunch", description: "Lean protein + mixed vegetables + starch (rice/potato)", approxCalories: c1),
-                .init(id: "m\(i)c", name: "Dinner", description: "Fish/chicken/tofu + salad + olive oil", approxCalories: max(tdee - 2 * c1, 300))
-            ]
-            return MealDayDTO(dayIndex: i, meals: meals)
-        }
-
-        let meal = MealPlanDTO(
-            targetDailyCalories: tdee,
-            notes: buildMealNotes(
-                budget: profile.weeklyMealBudget,
-                cookMins: profile.dailyCookingMinutes,
-                currencyCode: profile.currencyCode
-            ),
-            days: mealDays
-        )
-
-        return (workout, meal)
-    }
-
-    private static func buildWorkoutNotes(lose: Bool, gain: Bool, flex: Bool, injuries: String) -> String {
-        var parts: [String] = []
-        if lose { parts.append("Prioritize progressive overload with 2-3 full-body or upper/lower splits; add easy cardio.") }
-        if gain { parts.append("Emphasize compound lifts, adequate volume, and recovery between hard days.") }
-        if flex { parts.append("Include mobility finishers on recovery days.") }
-        if !injuries.isEmpty { parts.append("Modify any movement that aggravates: \(injuries)") }
-        return parts.joined(separator: " ")
-    }
-
-    private static func buildMealNotes(budget: Double, cookMins: Int, currencyCode: String) -> String {
-        let sym = CurrencyOption(rawValue: currencyCode)?.symbol ?? currencyCode + " "
-        return "Designed for roughly \(cookMins) minutes/day cooking and a weekly grocery budget near \(sym)\(Int(budget)). Adjust portions to hunger and energy."
     }
 }
