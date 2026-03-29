@@ -7,6 +7,10 @@ struct ProgressOverviewView: View {
     @Query(sort: \DailyNutritionLog.dayDate) private var nutrition: [DailyNutritionLog]
     @Query(sort: \StoredGeneratedPlans.generatedAt, order: .reverse) private var plans: [StoredGeneratedPlans]
     @Query private var sessions: [WorkoutSessionLog]
+    @Query private var profiles: [UserHealthProfile]
+
+    private var profile: UserHealthProfile? { profiles.first }
+    private var imperial: Bool { profile?.measurementSystemRaw == "imperial" }
 
     private var goalCalories: Int {
         guard let p = plans.first, let m = try? PlanCodec.decodeMeal(from: p.mealJSON) else { return 2000 }
@@ -17,6 +21,14 @@ struct ProgressOverviewView: View {
         let days = CalendarDay.daysInWeek(containing: Date())
         let keys = Set(days.map { DayKey.string(for: $0) })
         return Set(sessions.filter { keys.contains($0.dayKey) }.map(\.dayKey)).count
+    }
+
+    private var weightDistinctDays: Int {
+        MeasureConversion.distinctDaysWithWeight(Array(weights))
+    }
+
+    private var calorieDistinctDays: Int {
+        MeasureConversion.distinctDaysWithCalories(Array(nutrition))
     }
 
     var body: some View {
@@ -48,13 +60,25 @@ struct ProgressOverviewView: View {
     }
 
     private var weightSparkCard: some View {
-        let pts = weights.suffix(14).map { (d: $0.dayDate, w: $0.weightKg) }
+        let last = weights.suffix(14).filter { $0.weightKg > 0 }
+        let pts: [(d: Date, w: Double)] = last.map {
+            let w = imperial ? MeasureConversion.kgToLb($0.weightKg) : $0.weightKg
+            return (d: $0.dayDate, w: w)
+        }
+        let unit = imperial ? "lb" : "kg"
         return FocusCard {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Weight (14d)")
                     .font(.headline)
                     .foregroundStyle(FocusPalette.textPrimary)
-                if pts.count < 2 {
+                Text(MeasureConversion.chartWaitMessage)
+                    .font(.caption2)
+                    .foregroundStyle(FocusPalette.textSecondary)
+                if weightDistinctDays < MeasureConversion.minDaysForChart {
+                    Text("Logged days with weight: \(weightDistinctDays) / \(MeasureConversion.minDaysForChart)")
+                        .font(.caption)
+                        .foregroundStyle(FocusPalette.textSecondary)
+                } else if pts.isEmpty {
                     Text("Log weight in Fuel to chart progress.")
                         .font(.caption)
                         .foregroundStyle(FocusPalette.textSecondary)
@@ -63,7 +87,7 @@ struct ProgressOverviewView: View {
                         ForEach(Array(pts.enumerated()), id: \.offset) { _, p in
                             LineMark(
                                 x: .value("Day", p.d, unit: .day),
-                                y: .value("kg", p.w)
+                                y: .value(unit, p.w)
                             )
                             .foregroundStyle(FocusPalette.accent)
                         }
@@ -75,14 +99,21 @@ struct ProgressOverviewView: View {
     }
 
     private var adherenceCard: some View {
-        let last7 = nutrition.suffix(7)
-        let pts = last7.map { (d: $0.dayDate, c: $0.caloriesIn, g: goalCalories) }
+        let recent = nutrition.filter { $0.caloriesIn > 0 }.suffix(14)
+        let pts = recent.map { (d: $0.dayDate, c: $0.caloriesIn, g: goalCalories) }
         return FocusCard {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Calorie adherence")
                     .font(.headline)
                     .foregroundStyle(FocusPalette.textPrimary)
-                if pts.isEmpty {
+                Text(MeasureConversion.chartWaitMessage)
+                    .font(.caption2)
+                    .foregroundStyle(FocusPalette.textSecondary)
+                if calorieDistinctDays < MeasureConversion.minDaysForChart {
+                    Text("Logged days with calories: \(calorieDistinctDays) / \(MeasureConversion.minDaysForChart)")
+                        .font(.caption)
+                        .foregroundStyle(FocusPalette.textSecondary)
+                } else if pts.isEmpty {
                     Text("No nutrition logs in the last stretch.")
                         .font(.caption)
                         .foregroundStyle(FocusPalette.textSecondary)

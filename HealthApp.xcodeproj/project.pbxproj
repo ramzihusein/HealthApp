@@ -27,6 +27,10 @@
 		F10000000000000000000012 /* ProgressOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000012 /* ProgressOverviewView.swift */; };
 		F10000000000000000000013 /* ShareExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000013 /* ShareExportView.swift */; };
 		F10000000000000000000014 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000014 /* Assets.xcassets */; };
+		F10000000000000000000016 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000017 /* AppConfig.swift */; };
+		F10000000000000000000017 /* MeasureConversion.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000018 /* MeasureConversion.swift */; };
+		F10000000000000000000018 /* ExerciseKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000019 /* ExerciseKind.swift */; };
+		F10000000000000000000019 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,6 +56,10 @@
 		F20000000000000000000014 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F20000000000000000000015 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F20000000000000000000016 /* HealthApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = HealthApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F20000000000000000000017 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		F20000000000000000000018 /* MeasureConversion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeasureConversion.swift; sourceTree = "<group>"; };
+		F20000000000000000000019 /* ExerciseKind.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseKind.swift; sourceTree = "<group>"; };
+		F2000000000000000000001A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -116,6 +124,9 @@
 		F40000000000000000000006 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
+				F20000000000000000000017 /* AppConfig.swift */,
+				F20000000000000000000018 /* MeasureConversion.swift */,
+				F20000000000000000000019 /* ExerciseKind.swift */,
 				F20000000000000000000006 /* CalendarDay.swift */,
 				F20000000000000000000007 /* DayKey.swift */,
 			);
@@ -143,6 +154,7 @@
 				F4000000000000000000000C /* Nutrition */,
 				F4000000000000000000000D /* Progress */,
 				F4000000000000000000000E /* Share */,
+				F4000000000000000000000F /* Settings */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -195,6 +207,14 @@
 				F20000000000000000000013 /* ShareExportView.swift */,
 			);
 			path = Share;
+			sourceTree = "<group>";
+		};
+		F4000000000000000000000F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				F2000000000000000000001A /* SettingsView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -285,6 +305,10 @@
 				F10000000000000000000011 /* DietPaneView.swift in Sources */,
 				F10000000000000000000012 /* ProgressOverviewView.swift in Sources */,
 				F10000000000000000000013 /* ShareExportView.swift in Sources */,
+				F10000000000000000000016 /* AppConfig.swift in Sources */,
+				F10000000000000000000017 /* MeasureConversion.swift in Sources */,
+				F10000000000000000000018 /* ExerciseKind.swift in Sources */,
+				F10000000000000000000019 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

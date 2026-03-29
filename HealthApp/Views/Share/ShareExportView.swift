@@ -27,7 +27,7 @@ struct ShareExportView: View {
                             Text("Export for your coach")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("Creates a PDF summarizing goals, calorie goal vs logs, weight change, and recent workout entries.")
+                            Text("Creates a PDF summarizing goals, calorie goal vs logs, weight change, and recent workout entries. Configure your LLM API key under the Settings tab.")
                                 .font(.footnote)
                                 .foregroundStyle(FocusPalette.textSecondary)
                             Button("Build PDF") {
@@ -53,7 +53,7 @@ struct ShareExportView: View {
                             Text("Sync (coming next)")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("Stable user id on this install: \(UserAccountService.stableUserId.uuidString). Wire this to Supabase or Firebase so the web app reads the same rows.")
+                            Text("Stable user id on this install: \(UserAccountService.stableUserId.uuidString). OpenAI-style keys live in Settings (UserDefaults on device). Wire this user id to Supabase or Firebase so the web app reads the same rows.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
                         }

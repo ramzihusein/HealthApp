@@ -20,6 +20,10 @@ struct MainTabView: View {
             ShareExportView()
                 .tabItem { Label("Share", systemImage: "square.and.arrow.up") }
                 .tag(3)
+
+            SettingsView()
+                .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+                .tag(4)
         }
         .toolbarBackground(FocusPalette.surface, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)

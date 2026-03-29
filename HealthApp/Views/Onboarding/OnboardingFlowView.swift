@@ -15,6 +15,8 @@ struct OnboardingFlowView: View {
     @State private var injuries = ""
     @State private var cookMins = 45
     @State private var budget = 120.0
+    @State private var useImperial = false
+    @State private var currencyCode = "USD"
     @State private var isGenerating = false
     @State private var errorMessage: String?
 
@@ -26,6 +28,58 @@ struct OnboardingFlowView: View {
         "General health",
         "Rehab / return to activity"
     ]
+
+    private var weightLbBinding: Binding<Double> {
+        Binding(
+            get: { MeasureConversion.kgToLb(weightKg) },
+            set: { weightKg = MeasureConversion.lbToKg($0) }
+        )
+    }
+
+    private var heightFeet: Int {
+        let totalIn = heightCm / 2.54
+        return min(7, max(4, Int(totalIn / 12.0)))
+    }
+
+    private var heightInchesRemainder: Int {
+        let totalIn = heightCm / 2.54
+        let ft = Int(totalIn / 12.0)
+        return min(11, max(0, Int(round(totalIn - Double(ft * 12)))))
+    }
+
+    private var heightFeetBinding: Binding<Int> {
+        Binding(
+            get: { heightFeet },
+            set: { newFt in
+                let inch = heightInchesRemainder
+                heightCm = Double(max(4, min(7, newFt)) * 12 + inch) * 2.54
+            }
+        )
+    }
+
+    private var heightInchesBinding: Binding<Int> {
+        Binding(
+            get: { heightInchesRemainder },
+            set: { newIn in
+                let ft = heightFeet
+                heightCm = Double(ft * 12 + min(11, max(0, newIn))) * 2.54
+            }
+        )
+    }
+
+    private var heightImperialRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Height")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FocusPalette.textSecondary)
+            HStack(spacing: 12) {
+                Stepper("Feet: \(heightFeet)", value: heightFeetBinding, in: 4...7)
+                    .foregroundStyle(FocusPalette.textPrimary)
+                Stepper("In: \(heightInchesRemainder)", value: heightInchesBinding, in: 0...11)
+                    .foregroundStyle(FocusPalette.textPrimary)
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -60,12 +114,14 @@ struct OnboardingFlowView: View {
                 age = p.age
                 weightKg = p.weightKg
                 heightCm = p.heightCm
-                gender = p.genderRaw
+                gender = p.genderRaw == "non_binary" ? "prefer_not_say" : p.genderRaw
                 activity = p.activityLevelRaw
                 selectedGoals = Set(p.goals)
                 injuries = p.injuriesNotes
                 cookMins = p.dailyCookingMinutes
                 budget = p.weeklyMealBudget
+                useImperial = p.measurementSystemRaw == "imperial"
+                currencyCode = CurrencyOption(rawValue: p.currencyCode) != nil ? p.currencyCode : "USD"
             }
         }
     }
@@ -84,7 +140,7 @@ struct OnboardingFlowView: View {
         case 0: return "We use this to size training and nutrition — not to judge."
         case 1: return "Pick what matters now. You can change this later."
         case 2: return "Helps the planner respect real life."
-        default: return "We generate a structured workout and meal plan. Add an API key in Info for live LLM output."
+        default: return "We generate a structured workout and meal plan. Add an API key in Settings for live LLM output."
         }
     }
 
@@ -106,14 +162,30 @@ struct OnboardingFlowView: View {
         VStack(alignment: .leading, spacing: 16) {
             FocusCard {
                 VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Units")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(FocusPalette.textSecondary)
+                        Spacer()
+                        Picker("", selection: $useImperial) {
+                            Text("Metric").tag(false)
+                            Text("Imperial").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 220)
+                    }
                     labeledStepper("Age", value: $age, range: 14...90)
-                    labeledSlider("Weight (kg)", value: $weightKg, range: 35...200)
-                    labeledSlider("Height (cm)", value: $heightCm, range: 120...220)
+                    if useImperial {
+                        labeledSlider("Weight (lb)", value: weightLbBinding, range: 77...440)
+                        heightImperialRow
+                    } else {
+                        labeledSlider("Weight (kg)", value: $weightKg, range: 35...200)
+                        labeledSlider("Height (cm)", value: $heightCm, range: 120...220)
+                    }
                     pickerRow("Gender", selection: $gender, options: [
                         ("prefer_not_say", "Prefer not to say"),
                         ("female", "Female"),
-                        ("male", "Male"),
-                        ("non_binary", "Non-binary")
+                        ("male", "Male")
                     ])
                     pickerRow("Activity", selection: $activity, options: [
                         ("sedentary", "Mostly seated"),
@@ -162,7 +234,24 @@ struct OnboardingFlowView: View {
         FocusCard {
             VStack(alignment: .leading, spacing: 16) {
                 labeledStepper("Avg. cooking time / day (min)", value: $cookMins, range: 10...180)
-                labeledSlider("Weekly meal budget (USD)", value: $budget, range: 20...500)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Weekly grocery budget")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FocusPalette.textSecondary)
+                    Picker("Currency", selection: $currencyCode) {
+                        ForEach(CurrencyOption.allCases) { c in
+                            Text(c.label).tag(c.rawValue)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(FocusPalette.accent)
+                    .foregroundStyle(FocusPalette.textPrimary)
+                }
+                labeledSlider(
+                    "Amount (\(CurrencyOption(rawValue: currencyCode)?.symbol ?? currencyCode))",
+                    value: $budget,
+                    range: 20...500
+                )
             }
         }
     }
@@ -292,6 +381,8 @@ struct OnboardingFlowView: View {
         p.injuriesNotes = injuries
         p.dailyCookingMinutes = cookMins
         p.weeklyMealBudget = budget
+        p.measurementSystemRaw = useImperial ? "imperial" : "metric"
+        p.currencyCode = currencyCode
         p.updatedAt = .now
 
         Task {

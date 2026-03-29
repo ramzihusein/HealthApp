@@ -2,7 +2,6 @@ import SwiftUI
 import SwiftData
 
 struct WorkoutsPaneView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query(sort: \StoredGeneratedPlans.generatedAt, order: .reverse) private var plans: [StoredGeneratedPlans]
     @State private var weekAnchor = Date()
     @State private var selectedDay: Date?
@@ -33,6 +32,8 @@ struct WorkoutsPaneView: View {
                     weekStrip
 
                     if let d = selectedDay {
+                        plannedExercisesSection(for: d)
+
                         NavigationLink {
                             WorkoutDayDetailView(date: d, workoutPlan: planDTO)
                         } label: {
@@ -66,6 +67,59 @@ struct WorkoutsPaneView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private func plannedExercisesSection(for d: Date) -> some View {
+        let exercises = exercisesForDay(d)
+        if exercises.isEmpty {
+            EmptyView()
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Today’s plan")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textSecondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(exercises) { ex in
+                            exercisePlanChip(ex)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func exercisePlanChip(_ ex: ExerciseTemplateDTO) -> some View {
+        let kind = ExerciseKind.classify(name: ex.name, repsHint: ex.reps)
+        return HStack(spacing: 10) {
+            Image(systemName: kind.systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(kind.accent)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ex.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textPrimary)
+                    .lineLimit(2)
+                Text("\(ex.sets)× \(ex.reps)")
+                    .font(.caption2)
+                    .foregroundStyle(FocusPalette.textSecondary)
+            }
+            .frame(maxWidth: 200, alignment: .leading)
+        }
+        .padding(12)
+        .background(kind.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(kind.accent.opacity(0.35), lineWidth: 1)
+        )
+    }
+
+    private func exercisesForDay(_ d: Date) -> [ExerciseTemplateDTO] {
+        guard let plan = planDTO, let week = plan.weeks.first else { return [] }
+        let idx = CalendarDay.planDayIndex(for: d)
+        return week.days.first(where: { $0.dayIndex == idx })?.exercises ?? []
     }
 
     private var weekStrip: some View {

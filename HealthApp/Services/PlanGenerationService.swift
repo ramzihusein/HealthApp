@@ -19,17 +19,31 @@ enum PlanGenerationService {
     }
 
     private static var openAIKey: String? {
-        Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIKey") as? String
-            ?? ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
+        let ud = UserDefaults.standard
+        if let s = ud.string(forKey: AppConfig.openAIKeyUserDefaultsKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
+            return s
+        }
+        if let s = Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIKey") as? String, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return s
+        }
+        return ProcessInfo.processInfo.environment["OPENAI_API_KEY"]
     }
 
     private static var openAIBaseURL: String {
-        (Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIBaseURL") as? String)
+        let ud = UserDefaults.standard
+        if let s = ud.string(forKey: AppConfig.openAIBaseURLKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
+            return s
+        }
+        return (Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIBaseURL") as? String)
             ?? "https://api.openai.com/v1"
     }
 
     private static var openAIModel: String {
-        (Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIModel") as? String)
+        let ud = UserDefaults.standard
+        if let s = ud.string(forKey: AppConfig.openAIModelKey)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty {
+            return s
+        }
+        return (Bundle.main.object(forInfoDictionaryKey: "HealthAppOpenAIModel") as? String)
             ?? "gpt-4o-mini"
     }
 
@@ -69,7 +83,8 @@ enum PlanGenerationService {
             "goals": profile.goals,
             "injuriesNotes": profile.injuriesNotes,
             "dailyCookingMinutes": profile.dailyCookingMinutes,
-            "weeklyMealBudget": profile.weeklyMealBudget
+            "weeklyMealBudget": profile.weeklyMealBudget,
+            "currencyCode": profile.currencyCode
         ]
         let user = (try? JSONSerialization.data(withJSONObject: userPayload))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
@@ -201,7 +216,11 @@ private enum MockPlanBuilder {
 
         let meal = MealPlanDTO(
             targetDailyCalories: tdee,
-            notes: buildMealNotes(budget: profile.weeklyMealBudget, cookMins: profile.dailyCookingMinutes),
+            notes: buildMealNotes(
+                budget: profile.weeklyMealBudget,
+                cookMins: profile.dailyCookingMinutes,
+                currencyCode: profile.currencyCode
+            ),
             days: mealDays
         )
 
@@ -217,7 +236,8 @@ private enum MockPlanBuilder {
         return parts.joined(separator: " ")
     }
 
-    private static func buildMealNotes(budget: Double, cookMins: Int) -> String {
-        "Designed for roughly \(cookMins) minutes/day cooking and a weekly grocery budget near $\(Int(budget)). Adjust portions to hunger and energy."
+    private static func buildMealNotes(budget: Double, cookMins: Int, currencyCode: String) -> String {
+        let sym = CurrencyOption(rawValue: currencyCode)?.symbol ?? currencyCode + " "
+        return "Designed for roughly \(cookMins) minutes/day cooking and a weekly grocery budget near \(sym)\(Int(budget)). Adjust portions to hunger and energy."
     }
 }

@@ -15,6 +15,10 @@ final class UserHealthProfile {
     var injuriesNotes: String
     var dailyCookingMinutes: Int
     var weeklyMealBudget: Double
+    /// "metric" or "imperial"
+    var measurementSystemRaw: String
+    /// ISO currency code, e.g. USD, EUR
+    var currencyCode: String
 
     var createdAt: Date
     var updatedAt: Date
@@ -31,6 +35,8 @@ final class UserHealthProfile {
         injuriesNotes: String = "",
         dailyCookingMinutes: Int = 45,
         weeklyMealBudget: Double = 100,
+        measurementSystemRaw: String = "metric",
+        currencyCode: String = "USD",
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -45,6 +51,8 @@ final class UserHealthProfile {
         self.injuriesNotes = injuriesNotes
         self.dailyCookingMinutes = dailyCookingMinutes
         self.weeklyMealBudget = weeklyMealBudget
+        self.measurementSystemRaw = measurementSystemRaw
+        self.currencyCode = currencyCode
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
