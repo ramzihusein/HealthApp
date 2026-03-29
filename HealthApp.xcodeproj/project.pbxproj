@@ -11,6 +11,7 @@
 		F10000000000000000000002 /* AppRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* AppRootView.swift */; };
 		F10000000000000000000003 /* FocusPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000003 /* FocusPalette.swift */; };
 		F10000000000000000000004 /* PlanDTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000004 /* PlanDTOs.swift */; };
+		F10000000000000000000020 /* PlanJSONNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000021 /* PlanJSONNormalizer.swift */; };
 		F10000000000000000000005 /* AppModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000005 /* AppModels.swift */; };
 		F10000000000000000000006 /* CalendarDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000006 /* CalendarDay.swift */; };
 		F10000000000000000000007 /* DayKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000007 /* DayKey.swift */; };
@@ -44,6 +45,7 @@
 		F20000000000000000000002 /* AppRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRootView.swift; sourceTree = "<group>"; };
 		F20000000000000000000003 /* FocusPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusPalette.swift; sourceTree = "<group>"; };
 		F20000000000000000000004 /* PlanDTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDTOs.swift; sourceTree = "<group>"; };
+		F20000000000000000000021 /* PlanJSONNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanJSONNormalizer.swift; sourceTree = "<group>"; };
 		F20000000000000000000005 /* AppModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModels.swift; sourceTree = "<group>"; };
 		F20000000000000000000006 /* CalendarDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDay.swift; sourceTree = "<group>"; };
 		F20000000000000000000007 /* DayKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayKey.swift; sourceTree = "<group>"; };
@@ -128,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				F20000000000000000000004 /* PlanDTOs.swift */,
+				F20000000000000000000021 /* PlanJSONNormalizer.swift */,
 				F20000000000000000000005 /* AppModels.swift */,
 			);
 			path = Models;
@@ -316,6 +319,7 @@
 				F10000000000000000000002 /* AppRootView.swift in Sources */,
 				F10000000000000000000003 /* FocusPalette.swift in Sources */,
 				F10000000000000000000004 /* PlanDTOs.swift in Sources */,
+				F10000000000000000000020 /* PlanJSONNormalizer.swift in Sources */,
 				F10000000000000000000005 /* AppModels.swift in Sources */,
 				F10000000000000000000006 /* CalendarDay.swift in Sources */,
 				F10000000000000000000007 /* DayKey.swift in Sources */,

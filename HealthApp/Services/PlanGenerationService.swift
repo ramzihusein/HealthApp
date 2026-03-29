@@ -9,6 +9,8 @@ enum PlanGenerationService {
         case badResponse(Int)
         case emptyChoices
         case invalidJSON
+        /// Model JSON did not match the app schema after normalization (details for debugging).
+        case planDecodeFailed(String)
         /// Client-side wait exceeded (URLSession) or repeated timeouts.
         case requestTimedOut
         case network(String)
@@ -25,6 +27,8 @@ enum PlanGenerationService {
             case .badResponse(let c): return "API returned status \(c)."
             case .emptyChoices: return "No completion text from model."
             case .invalidJSON: return "Model output was not valid JSON."
+            case .planDecodeFailed(let detail):
+                return "The plan data could not be read (\(detail)). Try generating again, or use a different model."
             case .requestTimedOut:
                 return "The request timed out before the model finished. Your plan JSON is large, so the API can take 1-3+ minutes. Try again on Wi-Fi, wait, or clear the API key to use the built-in offline plan while you troubleshoot."
             case .network(let msg):
@@ -105,7 +109,7 @@ enum PlanGenerationService {
         - Use a sensible split (push/pull/legs, upper/lower, or bro split). Muscle groups trained the same day must make sense together.
         - For EACH major muscle group trained that day: at least 3 distinct exercises AND at least 12 total working sets for that group (e.g. 4+4+4).
         - Separate STRENGTH from CARDIO in the JSON: put all resistance exercises in "liftingExercises" (array). Put cardio in "cardioBlocks" (array), NOT mixed into lifting.
-        - "exercises" may be [] or duplicate liftingExercises for compatibility.
+        - Every day object MUST include "exercises" as an array (use [] if empty). Omitting it breaks parsing.
         - Each lifting exercise: { id, name, sets, reps, restSec?, notes?, steps?: string[] (3-6 short cues), diagramURL?: string (https to a real instructional image if possible), muscleGroupsTrained?: string[] }.
         - Each cardioBlock: { id, title, modality (walk|jog|run|bike|row|swim|elliptical|incline_walk only — NEVER yoga), durationMinutes, targetPace (e.g. mph, min/mile, or conversational), intensityNote?, instructions?: string[] }.
         - Do NOT prescribe yoga as cardio. Stretching belongs in "stretchSession": { title?, items: [{ id, name, holdSeconds?, steps: string[], diagramURL? }] }.
@@ -216,21 +220,56 @@ enum PlanGenerationService {
               let obj = try JSONSerialization.jsonObject(with: outer) as? [String: Any]
         else { throw GenerationError.invalidJSON }
 
-        guard let workoutPayload = obj["workoutPlan"] ?? obj["workout"] else {
+        guard let workoutAny = obj["workoutPlan"] ?? obj["workout"] else {
             throw GenerationError.invalidJSON
         }
-        guard let mealPayload = obj["mealPlan"] ?? obj["meal"] else {
+        guard let mealAny = obj["mealPlan"] ?? obj["meal"] else {
             throw GenerationError.invalidJSON
         }
-        let wpData = try JSONSerialization.data(withJSONObject: workoutPayload)
-        let mpData = try JSONSerialization.data(withJSONObject: mealPayload)
+        guard let workoutDict = workoutAny as? [String: Any] else {
+            throw GenerationError.invalidJSON
+        }
+        guard let mealDict = mealAny as? [String: Any] else {
+            throw GenerationError.invalidJSON
+        }
 
-        _ = try PlanCodec.jsonDecoder.decode(WorkoutPlanDTO.self, from: wpData)
-        _ = try PlanCodec.jsonDecoder.decode(MealPlanDTO.self, from: mpData)
+        let normalizedWorkout = PlanJSONNormalizer.normalizeWorkoutRoot(workoutDict)
+        let normalizedMeal = PlanJSONNormalizer.normalizeMealRoot(mealDict)
+
+        let wpData = try JSONSerialization.data(withJSONObject: normalizedWorkout, options: [])
+        let mpData = try JSONSerialization.data(withJSONObject: normalizedMeal, options: [])
+
+        do {
+            _ = try PlanCodec.jsonDecoder.decode(WorkoutPlanDTO.self, from: wpData)
+            _ = try PlanCodec.jsonDecoder.decode(MealPlanDTO.self, from: mpData)
+        } catch {
+            let detail: String
+            if let de = error as? DecodingError {
+                detail = Self.decodingErrorSummary(de)
+            } else {
+                detail = error.localizedDescription
+            }
+            throw GenerationError.planDecodeFailed(detail)
+        }
 
         let wStr = String(data: wpData, encoding: .utf8) ?? ""
         let mStr = String(data: mpData, encoding: .utf8) ?? ""
         return (wStr, mStr)
+    }
+
+    private static func decodingErrorSummary(_ error: DecodingError) -> String {
+        switch error {
+        case .keyNotFound(let key, let ctx):
+            return "missing field \"\(key.stringValue)\" \(ctx.debugDescription)"
+        case .typeMismatch(let type, let ctx):
+            return "wrong type for \(type) \(ctx.debugDescription)"
+        case .valueNotFound(let type, let ctx):
+            return "missing \(type) \(ctx.debugDescription)"
+        case .dataCorrupted(let ctx):
+            return ctx.debugDescription
+        @unknown default:
+            return String(describing: error)
+        }
     }
 
     /// OpenAI-compatible `{ "error": { "message": "..." } }` and similar.
