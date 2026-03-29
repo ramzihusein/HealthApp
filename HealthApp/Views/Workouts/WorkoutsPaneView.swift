@@ -2,10 +2,10 @@ import SwiftUI
 import SwiftData
 
 struct WorkoutsPaneView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \StoredGeneratedPlans.generatedAt, order: .reverse) private var plans: [StoredGeneratedPlans]
     @State private var weekAnchor = Date()
     @State private var selectedDay: Date?
-    @State private var guideExercise: ExerciseTemplateDTO?
 
     private var planDTO: WorkoutPlanDTO? {
         guard let p = plans.first else { return nil }
@@ -44,12 +44,13 @@ struct WorkoutsPaneView: View {
                             FocusCard {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 4) {
-                                        Text(dayTitle(d))
+                                        Text("Daily progress recap")
                                             .font(.headline)
                                             .foregroundStyle(FocusPalette.textPrimary)
-                                        Text(subtitleForDay(d))
+                                        Text("\(dayTitle(d)) · \(subtitleForDay(d))")
                                             .font(.caption)
                                             .foregroundStyle(FocusPalette.textSecondary)
+                                            .lineLimit(2)
                                     }
                                     Spacer()
                                     Image(systemName: "chevron.right")
@@ -65,15 +66,25 @@ struct WorkoutsPaneView: View {
             .background(FocusScreenBackground())
             .navigationTitle("Training week")
             .navigationBarTitleDisplayMode(.large)
-            .navigationDestination(item: $guideExercise) { ex in
-                ExerciseGuideDetailView(exercise: ex)
-            }
             .onAppear {
                 if selectedDay == nil {
                     selectedDay = CalendarDay.startOfDay(Date())
                 }
+                bootstrapSessionsForSelectedDay()
+            }
+            .onChange(of: selectedDay) { _, _ in
+                bootstrapSessionsForSelectedDay()
+            }
+            .onChange(of: plans.first?.generatedAt) { _, _ in
+                bootstrapSessionsForSelectedDay()
             }
         }
+    }
+
+    private func bootstrapSessionsForSelectedDay() {
+        guard let d = selectedDay, let p = planDTO else { return }
+        try? WorkoutSessionBootstrapper.ensureSessionsForDay(date: d, plan: p, context: modelContext)
+        try? modelContext.save()
     }
 
     private func dayModel(for d: Date) -> WorkoutDayDTO? {
@@ -92,19 +103,17 @@ struct WorkoutsPaneView: View {
                 Label("Strength / lifting", systemImage: "figure.strengthtraining.traditional")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FocusPalette.textSecondary)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(lifts) { ex in
-                            Button {
-                                guideExercise = ex
-                            } label: {
-                                exercisePlanChip(ex)
-                            }
-                            .buttonStyle(.plain)
+                VStack(spacing: 10) {
+                    ForEach(lifts) { ex in
+                        NavigationLink {
+                            WorkoutExerciseDetailView(dayDate: d, exercise: ex, workoutPlan: planDTO)
+                        } label: {
+                            exercisePlanRow(ex)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
-                Text("Tap an exercise for steps and diagram.")
+                Text("Tap an exercise to log sets or view how to.")
                     .font(.caption2)
                     .foregroundStyle(FocusPalette.textSecondary)
             }
@@ -156,40 +165,44 @@ struct WorkoutsPaneView: View {
                 Label("Mobility (legacy list)", systemImage: "figure.flexibility")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FocusPalette.textSecondary)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(mob) { ex in
-                            Button {
-                                guideExercise = ex
-                            } label: {
-                                exercisePlanChip(ex)
-                            }
-                            .buttonStyle(.plain)
+                VStack(spacing: 10) {
+                    ForEach(mob) { ex in
+                        NavigationLink {
+                            ExerciseGuideDetailView(exercise: ex)
+                        } label: {
+                            exercisePlanRow(ex)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
         }
     }
 
-    private func exercisePlanChip(_ ex: ExerciseTemplateDTO) -> some View {
+    /// Full-width row for strength list (always lifting styling in this section).
+    private func exercisePlanRow(_ ex: ExerciseTemplateDTO) -> some View {
         let kind = ExerciseKind.classify(name: ex.name, repsHint: ex.reps)
-        return HStack(spacing: 10) {
+        return HStack(spacing: 12) {
             Image(systemName: kind.systemImage)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(kind.accent)
-            VStack(alignment: .leading, spacing: 2) {
+                .frame(width: 28, alignment: .center)
+            VStack(alignment: .leading, spacing: 4) {
                 Text(ex.name)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(FocusPalette.textPrimary)
-                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
                 Text("\(ex.sets)× \(ex.reps)")
                     .font(.caption2)
                     .foregroundStyle(FocusPalette.textSecondary)
             }
-            .frame(maxWidth: 200, alignment: .leading)
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(FocusPalette.accent.opacity(0.8))
         }
-        .padding(12)
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(kind.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(

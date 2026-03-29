@@ -55,7 +55,7 @@ struct WorkoutDayDetailView: View {
                 Section {
                     ForEach(day.liftingExercisesResolved()) { ex in
                         NavigationLink {
-                            ExerciseGuideDetailView(exercise: ex)
+                            WorkoutExerciseDetailView(dayDate: date, exercise: ex, workoutPlan: workoutPlan)
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(ex.name)
@@ -64,18 +64,16 @@ struct WorkoutDayDetailView: View {
                                 Text("\(ex.sets)× \(ex.reps)")
                                     .font(.caption2)
                                     .foregroundStyle(FocusPalette.textSecondary)
-                                if ex.steps != nil, !(ex.steps ?? []).isEmpty {
-                                    Text("Tap for steps & diagram")
-                                        .font(.caption2)
-                                        .foregroundStyle(FocusPalette.accent)
-                                }
+                                Text("Progress · how to")
+                                    .font(.caption2)
+                                    .foregroundStyle(FocusPalette.accent)
                             }
                             .padding(.vertical, 4)
                         }
                         .listRowBackground(FocusPalette.surfaceElevated)
                     }
                 } header: {
-                    Text("Strength plan")
+                    Text("Strength / lifting")
                         .foregroundStyle(FocusPalette.textSecondary)
                 }
             }
@@ -125,7 +123,7 @@ struct WorkoutDayDetailView: View {
 
             Section {
                 if sessionsForDay.isEmpty {
-                    Text("No lifts logged yet for this day. Complete sets below when you train.")
+                    Text("No sets logged yet. Use each exercise above, or enter everything here.")
                         .font(.footnote)
                         .foregroundStyle(FocusPalette.textSecondary)
                 }
@@ -133,7 +131,7 @@ struct WorkoutDayDetailView: View {
                     ExerciseLogCard(session: session, usePounds: usePounds)
                 }
             } header: {
-                Text("Log performance (strength)")
+                Text("Daily progress recap")
                     .foregroundStyle(FocusPalette.textSecondary)
             }
         }
@@ -150,6 +148,105 @@ struct WorkoutDayDetailView: View {
         .onChange(of: profiles.first?.measurementSystemRaw) { _, new in
             guard let new else { return }
             usePounds = (new == "imperial")
+        }
+    }
+}
+
+// MARK: - Single exercise: log sets + how-to
+
+struct WorkoutExerciseDetailView: View {
+    enum TabSelection: String, CaseIterable {
+        case progress = "Progress"
+        case howTo = "How to"
+    }
+
+    let dayDate: Date
+    let exercise: ExerciseTemplateDTO
+    let workoutPlan: WorkoutPlanDTO?
+
+    @Environment(\.modelContext) private var modelContext
+    @Query private var allSessions: [WorkoutSessionLog]
+    @Query private var profiles: [UserHealthProfile]
+
+    @State private var tab: TabSelection = .progress
+    @State private var usePounds: Bool = false
+
+    private var dayStart: Date { CalendarDay.startOfDay(dayDate) }
+    private var dayKey: String { DayKey.string(for: dayStart) }
+
+    private var session: WorkoutSessionLog? {
+        allSessions.first { $0.dayKey == dayKey && $0.exerciseId == exercise.id }
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $tab) {
+                ForEach(TabSelection.allCases, id: \.self) { t in
+                    Text(t.rawValue).tag(t)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 12)
+
+            Group {
+                switch tab {
+                case .progress:
+                    progressTab
+                case .howTo:
+                    ScrollView {
+                        ExerciseHowToContent(exercise: exercise)
+                            .padding(20)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .background(FocusScreenBackground())
+        .navigationTitle(exercise.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            usePounds = profiles.first?.measurementSystemRaw == "imperial"
+            guard let plan = workoutPlan else { return }
+            try? WorkoutSessionBootstrapper.ensureSessionsForDay(date: dayStart, plan: plan, context: modelContext)
+            try? modelContext.save()
+        }
+        .onChange(of: profiles.first?.measurementSystemRaw) { _, new in
+            guard let new else { return }
+            usePounds = (new == "imperial")
+        }
+    }
+
+    private var progressTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let s = session {
+                    Text("Target \(s.targetSets)× · \(s.targetRepsHint)")
+                        .font(.subheadline)
+                        .foregroundStyle(FocusPalette.textSecondary)
+                        .padding(.horizontal, 20)
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(s.sets.sorted { $0.setIndex < $1.setIndex }, id: \.persistentModelID) { set in
+                            SetEntryRow(set: set, usePounds: usePounds)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                } else {
+                    VStack(spacing: 12) {
+                        Text("Session data is still syncing for this exercise.")
+                            .font(.subheadline)
+                            .foregroundStyle(FocusPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                        Text("Go back and open Daily progress recap for this day, or try again in a moment.")
+                            .font(.footnote)
+                            .foregroundStyle(FocusPalette.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(32)
+                }
+            }
+            .padding(.vertical, 16)
         }
     }
 }

@@ -51,7 +51,7 @@ struct OnboardingFlowView: View {
         ("rowing_erg", "Rowing machine"),
         ("running_paths", "Outdoor running / paths"),
         ("swim_access", "Pool / swim"),
-        ("bodyweight_only", "Bodyweight only")
+        ("no_gym_equipment", "No gym equipment")
     ]
 
     private var weightLbBinding: Binding<Double> {
@@ -152,7 +152,7 @@ struct OnboardingFlowView: View {
                 liftDaysPerWeek = p.liftDaysPerWeek
                 cardioDaysPerWeek = p.cardioDaysPerWeek
                 let eqParts = p.equipmentCSV.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-                equipmentSelected = Set(eqParts)
+                equipmentSelected = Set(eqParts.map { $0 == "bodyweight_only" ? "no_gym_equipment" : $0 })
             }
         }
         .onChange(of: llmProvider) { old, p in
@@ -585,7 +585,10 @@ struct OnboardingFlowView: View {
         p.workoutSessionMinutes = workoutSessionMinutes
         p.liftDaysPerWeek = liftDaysPerWeek
         p.cardioDaysPerWeek = cardioDaysPerWeek
-        p.equipmentCSV = equipmentSelected.sorted().joined(separator: ",")
+        p.equipmentCSV = equipmentSelected
+            .map { $0 == "bodyweight_only" ? "no_gym_equipment" : $0 }
+            .sorted()
+            .joined(separator: ",")
         p.updatedAt = .now
 
         Task {

@@ -5,89 +5,133 @@ struct ExerciseGuideDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if let groups = exercise.muscleGroupsTrained, !groups.isEmpty {
-                    FlowTagsRow(tags: groups)
-                }
-
-                if let urlStr = exercise.diagramURL, let url = URL(string: urlStr), ["http", "https"].contains(url.scheme?.lowercased()) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxHeight: 220)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        case .failure:
-                            diagramPlaceholder
-                        case .empty:
-                            ProgressView()
-                                .frame(maxWidth: .infinity, minHeight: 120)
-                        @unknown default:
-                            diagramPlaceholder
-                        }
-                    }
-                } else {
-                    diagramPlaceholder
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("How to do it")
-                        .font(.headline)
-                        .foregroundStyle(FocusPalette.textPrimary)
-                    if let steps = exercise.steps, !steps.isEmpty {
-                        ForEach(Array(steps.enumerated()), id: \.offset) { i, s in
-                            HStack(alignment: .top, spacing: 10) {
-                                Text("\(i + 1)")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(FocusPalette.background)
-                                    .frame(width: 22, height: 22)
-                                    .background(FocusPalette.accent)
-                                    .clipShape(Circle())
-                                Text(s)
-                                    .font(.subheadline)
-                                    .foregroundStyle(FocusPalette.textSecondary)
-                            }
-                        }
-                    } else {
-                        Text("Follow your plan's sets and reps. Add step-by-step cues in Settings by regenerating with an API key for richer instructions.")
-                            .font(.footnote)
-                            .foregroundStyle(FocusPalette.textSecondary)
-                    }
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(FocusPalette.surfaceElevated)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                if let n = exercise.notes, !n.isEmpty {
-                    Text(n)
-                        .font(.footnote)
-                        .foregroundStyle(FocusPalette.warning)
-                }
-            }
-            .padding(20)
+            ExerciseHowToContent(exercise: exercise)
+                .padding(20)
         }
         .background(FocusScreenBackground())
         .navigationTitle(exercise.name)
         .navigationBarTitleDisplayMode(.inline)
     }
+}
 
-    private var diagramPlaceholder: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "figure.strengthtraining.traditional")
+/// Shared “how to” body for the guide screen and the exercise detail tab.
+struct ExerciseHowToContent: View {
+    let exercise: ExerciseTemplateDTO
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let groups = exercise.muscleGroupsTrained, !groups.isEmpty {
+                FlowTagsRow(tags: groups)
+            }
+
+            diagramSection
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("How to do it")
+                    .font(.headline)
+                    .foregroundStyle(FocusPalette.textPrimary)
+                if let steps = exercise.steps, !steps.isEmpty {
+                    ForEach(Array(steps.enumerated()), id: \.offset) { i, s in
+                        HStack(alignment: .top, spacing: 10) {
+                            Text("\(i + 1)")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(FocusPalette.background)
+                                .frame(width: 22, height: 22)
+                                .background(FocusPalette.accent)
+                                .clipShape(Circle())
+                            Text(s)
+                                .font(.subheadline)
+                                .foregroundStyle(FocusPalette.textSecondary)
+                        }
+                    }
+                } else {
+                    Text("Follow your plan's sets and reps. Regenerate with an API key for richer step cues, or use the image search below.")
+                        .font(.footnote)
+                        .foregroundStyle(FocusPalette.textSecondary)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(FocusPalette.surfaceElevated)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            if let n = exercise.notes, !n.isEmpty {
+                Text(n)
+                    .font(.footnote)
+                    .foregroundStyle(FocusPalette.warning)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var diagramSection: some View {
+        if let urlStr = exercise.diagramURL,
+           let url = URL(string: urlStr),
+           ["http", "https"].contains(url.scheme?.lowercased()) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let img):
+                    img
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                case .failure:
+                    liftDiagramFallback
+                case .empty:
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 120)
+                @unknown default:
+                    liftDiagramFallback
+                }
+            }
+        } else {
+            liftDiagramFallback
+        }
+    }
+
+    private var liftDiagramFallback: some View {
+        VStack(spacing: 10) {
+            Image(systemName: LiftDiagramFallback.symbol(for: exercise.name))
                 .font(.system(size: 48))
-                .foregroundStyle(FocusPalette.accent.opacity(0.85))
-            Text("No diagram URL — use the steps above or search the move name.")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(FocusPalette.accent.opacity(0.9))
+            Text("No usable diagram link in your plan. Models often omit URLs — use search for form photos, or regenerate after an app update.")
                 .font(.caption)
                 .foregroundStyle(FocusPalette.textSecondary)
                 .multilineTextAlignment(.center)
+            if let link = LiftDiagramFallback.imageSearchURL(query: exercise.name) {
+                Link(destination: link) {
+                    Label("Search images for this lift", systemImage: "safari")
+                        .font(.caption.weight(.semibold))
+                }
+                .tint(FocusPalette.accent)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(24)
         .background(FocusPalette.surfaceElevated)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private enum LiftDiagramFallback {
+    static func symbol(for name: String) -> String {
+        let n = name.lowercased()
+        if n.contains("squat") || n.contains("leg press") || n.contains("lunge") { return "figure.strengthtraining.functional" }
+        if n.contains("deadlift") || n.contains("rdl") || n.contains("hip thrust") { return "figure.strengthtraining.traditional" }
+        if n.contains("press") || n.contains("bench") || n.contains("push-up") || n.contains("push up") || n.contains("dip") {
+            return "figure.strengthtraining.traditional"
+        }
+        if n.contains("row") || n.contains("pull") || n.contains("curl") || n.contains("lat ") { return "figure.cooldown" }
+        if n.contains("run") || n.contains("jog") || n.contains("walk") { return "figure.run" }
+        return "figure.strengthtraining.traditional"
+    }
+
+    static func imageSearchURL(query: String) -> URL? {
+        let q = "\(query) strength exercise form technique"
+        guard let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
+        return URL(string: "https://www.bing.com/images/search?q=\(enc)")
     }
 }
 

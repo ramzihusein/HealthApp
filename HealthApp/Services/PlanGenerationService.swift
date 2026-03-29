@@ -110,10 +110,11 @@ enum PlanGenerationService {
         - For EACH major muscle group trained that day: at least 3 distinct exercises AND at least 12 total working sets for that group (e.g. 4+4+4).
         - Separate STRENGTH from CARDIO in the JSON: put all resistance exercises in "liftingExercises" (array). Put cardio in "cardioBlocks" (array), NOT mixed into lifting.
         - Every day object MUST include "exercises" as an array (use [] if empty). Omitting it breaks parsing.
-        - Each lifting exercise: { id, name, sets, reps, restSec?, notes?, steps?: string[] (3-6 short cues), diagramURL?: string (https to a real instructional image if possible), muscleGroupsTrained?: string[] }.
+        - Each lifting exercise: { id, name, sets, reps, restSec?, notes?, steps?: string[] (3-6 short cues), diagramURL?: string, muscleGroupsTrained?: string[] }. For diagramURL prefer a direct link to ONE image file you can verify (e.g. upload.wikimedia.org/.../...png or .jpg). If you cannot verify a real URL, omit diagramURL entirely — do not use placeholder or fake hosts. The app shows an image search link when omitted.
         - Each cardioBlock: { id, title, modality (walk|jog|run|bike|row|swim|elliptical|incline_walk only — NEVER yoga), durationMinutes, targetPace (e.g. mph, min/mile, or conversational), intensityNote?, instructions?: string[] }.
         - Do NOT prescribe yoga as cardio. Stretching belongs in "stretchSession": { title?, items: [{ id, name, holdSeconds?, steps: string[], diagramURL? }] }.
         - Respect equipmentAvailable; avoid machines the user does not have.
+        - If equipmentAvailable includes "no_gym_equipment", the user has no weights or gym machines — prioritize calisthenics and environment-based cardio; still honor other listed items (e.g. pull-up bar, resistance bands).
 
         workoutPlan: { programNotes?: string, weeks: [{ label: string, days: [{ dayIndex: 0-6 Mon-Sun, name: string, exercises: ExerciseTemplateDTO[], liftingExercises?: ExerciseTemplateDTO[], cardioBlocks?: CardioBlockDTO[], stretchSession?: StretchSessionDTO }] }] }
 
@@ -137,7 +138,7 @@ enum PlanGenerationService {
             "workoutSessionMinutes": profile.workoutSessionMinutes,
             "liftDaysPerWeek": profile.liftDaysPerWeek,
             "cardioDaysPerWeek": profile.cardioDaysPerWeek,
-            "equipmentAvailable": profile.equipmentCSV.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            "equipmentAvailable": profile.equipmentTagsForPlanning
         ]
         let user = (try? JSONSerialization.data(withJSONObject: userPayload))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"

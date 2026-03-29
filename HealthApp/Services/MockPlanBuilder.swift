@@ -44,7 +44,7 @@ enum MockPlanBuilder {
     }
 
     private static func equipmentSet(_ profile: UserHealthProfile) -> Set<String> {
-        let parts = profile.equipmentCSV.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }.filter { !$0.isEmpty }
+        let parts = profile.equipmentTagsForPlanning.map { $0.lowercased() }
         var s = Set(parts)
         if s.isEmpty { s = ["dumbbells", "bodyweight", "running_paths"] }
         return s

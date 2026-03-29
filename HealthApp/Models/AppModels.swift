@@ -21,7 +21,7 @@ final class UserHealthProfile {
     var liftDaysPerWeek: Int
     /// Target cardio sessions per week.
     var cardioDaysPerWeek: Int
-    /// Comma-separated equipment tags, e.g. "dumbbells,machines,treadmill"
+    /// Comma-separated equipment tags, e.g. "dumbbells,machines,treadmill,no_gym_equipment"
     var equipmentCSV: String
     /// "metric" or "imperial"
     var measurementSystemRaw: String
@@ -75,6 +75,20 @@ final class UserHealthProfile {
 
     var goals: [String] {
         goalsCSV.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
+
+    /// Tags for planners and the LLM; maps legacy `bodyweight_only` to `no_gym_equipment`.
+    var equipmentTagsForPlanning: [String] {
+        let raw = equipmentCSV.split(separator: ",")
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        var out: [String] = []
+        var seen = Set<String>()
+        for tag in raw {
+            let t = tag == "bodyweight_only" ? "no_gym_equipment" : tag
+            if seen.insert(t).inserted { out.append(t) }
+        }
+        return out
     }
 }
 
