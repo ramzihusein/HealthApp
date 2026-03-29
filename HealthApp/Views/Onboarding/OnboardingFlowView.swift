@@ -213,9 +213,10 @@ struct OnboardingFlowView: View {
                     Text("API key (optional)")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(FocusPalette.textSecondary)
-                    SecureField("Paste key — leave empty to use a mock plan", text: $llmApiKeyDraft)
-                        .textContentType(.password)
-                        .textFieldStyle(.roundedBorder)
+                    APIKeyField(
+                        text: $llmApiKeyDraft,
+                        placeholder: "sk-… or paste — leave empty to use a mock plan"
+                    )
 
                     LLMApiKeyHelpDisclosure(provider: llmProvider)
                 }

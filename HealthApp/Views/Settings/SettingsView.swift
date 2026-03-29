@@ -11,6 +11,9 @@ struct SettingsView: View {
     @State private var useImperial = false
     @State private var currencyCode = "USD"
     @State private var savedNotice = false
+    @State private var isRegeneratingPlans = false
+    @State private var regenError: String?
+    @State private var regenSuccess = false
 
     private var profile: UserHealthProfile? { profiles.first }
 
@@ -39,9 +42,7 @@ struct SettingsView: View {
                             Text("Key is stored in this app’s UserDefaults on device only—not in Git. For production, prefer Keychain.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
-                            SecureField("API key", text: $apiKey)
-                                .textContentType(.password)
-                                .textFieldStyle(.roundedBorder)
+                            APIKeyField(text: $apiKey, placeholder: "API key")
 
                             LLMApiKeyHelpDisclosure(provider: tutorialProvider)
 
@@ -53,6 +54,28 @@ struct SettingsView: View {
                                 .autocorrectionDisabled()
                             Button("Save API settings") { saveAPISettings() }
                                 .buttonStyle(FocusPrimaryButtonStyle())
+                        }
+                    }
+
+                    FocusCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Regenerate plans")
+                                .font(.headline)
+                                .foregroundStyle(FocusPalette.textPrimary)
+                            Text("Uses your current profile and saved API settings to request new workout and meal plans. Mock templates are used if no API key is set.")
+                                .font(.caption)
+                                .foregroundStyle(FocusPalette.textSecondary)
+                            Button(action: regeneratePlans) {
+                                HStack {
+                                    if isRegeneratingPlans {
+                                        ProgressView()
+                                            .tint(FocusPalette.background)
+                                    }
+                                    Text(isRegeneratingPlans ? "Generating…" : "Regenerate workout & meal plans")
+                                }
+                            }
+                            .buttonStyle(FocusPrimaryButtonStyle())
+                            .disabled(profile == nil || isRegeneratingPlans)
                         }
                     }
 
@@ -98,6 +121,19 @@ struct SettingsView: View {
             .onAppear { loadFromStorageAndProfile() }
             .onChange(of: useImperial) { _, _ in persistProfilePreferences() }
             .onChange(of: currencyCode) { _, _ in persistProfilePreferences() }
+            .alert("Regeneration failed", isPresented: Binding(
+                get: { regenError != nil },
+                set: { if !$0 { regenError = nil } }
+            )) {
+                Button("OK") { regenError = nil }
+            } message: {
+                Text(regenError ?? "")
+            }
+            .alert("Plans updated", isPresented: $regenSuccess) {
+                Button("OK") {}
+            } message: {
+                Text("New workout and meal plans are saved. Review the Train and Fuel tabs.")
+            }
         }
     }
 
@@ -130,5 +166,35 @@ struct SettingsView: View {
         p.currencyCode = currencyCode
         p.updatedAt = Date.now
         try? modelContext.save()
+    }
+
+    private func regeneratePlans() {
+        guard let p = profile else { return }
+        regenError = nil
+        isRegeneratingPlans = true
+        Task {
+            do {
+                let result = try await PlanGenerationService.generatePlans(for: p)
+                await MainActor.run {
+                    let existing = (try? modelContext.fetch(FetchDescriptor<StoredGeneratedPlans>())) ?? []
+                    existing.forEach { modelContext.delete($0) }
+                    let stored = StoredGeneratedPlans(
+                        workoutJSON: result.workoutJSON,
+                        mealJSON: result.mealJSON,
+                        llmModelUsed: result.model
+                    )
+                    modelContext.insert(stored)
+                    p.updatedAt = Date.now
+                    try? modelContext.save()
+                    isRegeneratingPlans = false
+                    regenSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    isRegeneratingPlans = false
+                    regenError = error.localizedDescription
+                }
+            }
+        }
     }
 }

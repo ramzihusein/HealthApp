@@ -27,7 +27,7 @@ struct ShareExportView: View {
                             Text("Export for your coach")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("Creates a PDF summarizing goals, calorie goal vs logs, weight change, and recent workout entries. Configure your LLM API key under the Settings tab.")
+                            Text("Creates a multi-page PDF: weekly goals (met / not met), daily calorie and workout status, weight trend chart, calorie bar chart for the week, and recent lifts. Configure your LLM API key under Settings.")
                                 .font(.footnote)
                                 .foregroundStyle(FocusPalette.textSecondary)
                             Button("Build PDF") {

@@ -33,6 +33,7 @@
 		F10000000000000000000019 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001A /* SettingsView.swift */; };
 		F1000000000000000000001A /* OnboardingLLMProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001B /* OnboardingLLMProvider.swift */; };
 		F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */; };
+		F1000000000000000000001C /* APIKeyField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001D /* APIKeyField.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -64,6 +65,7 @@
 		F2000000000000000000001A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F2000000000000000000001B /* OnboardingLLMProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingLLMProvider.swift; sourceTree = "<group>"; };
 		F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMApiKeyHelpDisclosure.swift; sourceTree = "<group>"; };
+		F2000000000000000000001D /* APIKeyField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyField.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -160,6 +162,7 @@
 				F4000000000000000000000D /* Progress */,
 				F4000000000000000000000E /* Share */,
 				F4000000000000000000000F /* Settings */,
+				F40000000000000000000010 /* Components */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -221,6 +224,14 @@
 				F2000000000000000000001A /* SettingsView.swift */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		F40000000000000000000010 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				F2000000000000000000001D /* APIKeyField.swift */,
+			);
+			path = Components;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -317,6 +328,7 @@
 				F10000000000000000000019 /* SettingsView.swift in Sources */,
 				F1000000000000000000001A /* OnboardingLLMProvider.swift in Sources */,
 				F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */,
+				F1000000000000000000001C /* APIKeyField.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
