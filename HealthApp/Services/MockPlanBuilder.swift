@@ -204,11 +204,11 @@ enum MockPlanBuilder {
                 let base = legsDay(dayIndex: i, equipment: equipment, sessionMins: sessionMins, injuries: injuries)
                 return cardioFinisherOnLift[i] ? withPostLiftCardio(base, dayIndex: i) : base
             case .cardioOnly:
-                cardioDay(dayIndex: i, modality: cardioModality(for: i))
+                return cardioDay(dayIndex: i, modality: cardioModality(for: i))
             case .mobility:
-                mobilityDay(dayIndex: i)
+                return mobilityDay(dayIndex: i)
             case .rest:
-                restDay(dayIndex: i, flex: flex)
+                return restDay(dayIndex: i, flex: flex)
             }
         }
     }
