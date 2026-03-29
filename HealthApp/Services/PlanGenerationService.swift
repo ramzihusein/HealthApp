@@ -107,11 +107,14 @@ enum PlanGenerationService {
               let obj = try JSONSerialization.jsonObject(with: outer) as? [String: Any]
         else { throw GenerationError.invalidJSON }
 
-        let wpAny = obj["workoutPlan"] ?? obj["workout"]
-        let mpAny = obj["mealPlan"] ?? obj["meal"]
-        guard let wpData = try JSONSerialization.data(withJSONObject: wpAny),
-              let mpData = try JSONSerialization.data(withJSONObject: mpAny)
-        else { throw GenerationError.invalidJSON }
+        guard let workoutPayload = obj["workoutPlan"] ?? obj["workout"] else {
+            throw GenerationError.invalidJSON
+        }
+        guard let mealPayload = obj["mealPlan"] ?? obj["meal"] else {
+            throw GenerationError.invalidJSON
+        }
+        let wpData = try JSONSerialization.data(withJSONObject: workoutPayload)
+        let mpData = try JSONSerialization.data(withJSONObject: mealPayload)
 
         _ = try PlanCodec.jsonDecoder.decode(WorkoutPlanDTO.self, from: wpData)
         _ = try PlanCodec.jsonDecoder.decode(MealPlanDTO.self, from: mpData)
