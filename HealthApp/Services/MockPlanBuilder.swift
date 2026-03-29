@@ -61,7 +61,7 @@ enum MockPlanBuilder {
 
     private static func applySuggestedWeights(to plan: WorkoutPlanDTO, hints: [String: Double]) -> WorkoutPlanDTO {
         guard !hints.isEmpty else { return plan }
-        WorkoutPlanDTO(
+        return WorkoutPlanDTO(
             programNotes: plan.programNotes,
             weeks: plan.weeks.map { w in
                 WorkoutWeekDTO(label: w.label, days: w.days.map { applySuggestedWeights(to: $0, hints: hints) })
