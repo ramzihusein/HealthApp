@@ -117,7 +117,7 @@ struct DietPaneView: View {
                 set: { newVal in
                     guard let p = profile else { return }
                     p.measurementSystemRaw = newVal ? "imperial" : "metric"
-                    p.updatedAt = .now()
+                    p.updatedAt = Date.now
                     useImperialWeight = newVal
                     try? modelContext.save()
                     loadFieldsForSelectedDay()

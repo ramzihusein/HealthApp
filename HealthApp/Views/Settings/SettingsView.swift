@@ -128,7 +128,7 @@ struct SettingsView: View {
         guard let p = profile else { return }
         p.measurementSystemRaw = useImperial ? "imperial" : "metric"
         p.currencyCode = currencyCode
-        p.updatedAt = .now()
+        p.updatedAt = Date.now
         try? modelContext.save()
     }
 }
