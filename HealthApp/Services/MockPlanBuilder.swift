@@ -342,7 +342,7 @@ enum MockPlanBuilder {
                     instructions: ["Flat path; focus on relaxed breathing."]
                 )
             ],
-            stretchSession: nil
+            stretchSession: defaultLowerStretch(title: "Optional light stretching")
         )
     }
 
@@ -493,13 +493,15 @@ enum MockPlanBuilder {
     private enum Diagrams {
         static let bench = "https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Barbell_bench_press.png/320px-Barbell_bench_press.png"
         static let squat = "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bd/Squat_with_barbell.png/320px-Squat_with_barbell.png"
-        static let quadStretch = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6e/Static_quadriceps_stretch.jpg/320px-Static_quadriceps_stretch.jpg"
-        static let hamstringStretch = "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Stretching_exercise.jpg/320px-Stretching_exercise.jpg"
-        static let doorStretch = "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Pectoralis_major_stretch.jpg/320px-Pectoralis_major_stretch.jpg"
-        static let shoulderStretch = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Shoulder_stretch.jpg/320px-Shoulder_stretch.jpg"
-        static let catCow = "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Yoga_cat-cow_pose.jpg/320px-Yoga_cat-cow_pose.jpg"
-        static let lungeStretch = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Lunge_stretch.jpg/320px-Lunge_stretch.jpg"
-        static let hipFlexor = "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Hip_flexor_stretch.jpg/320px-Hip_flexor_stretch.jpg"
+
+        // Stretch references: direct Commons URLs (JPEG/PNG/GIF) — CDC GIFs are U.S. public domain.
+        static let quadStretch = "https://upload.wikimedia.org/wikipedia/commons/6/6e/Static_quadriceps_stretch.jpg"
+        static let hamstringStretch = "https://upload.wikimedia.org/wikipedia/commons/3/32/Hamstring_stretch-CDC_strength_training_for_older_adults.gif"
+        static let doorStretch = "https://upload.wikimedia.org/wikipedia/commons/4/41/Chest_stretch-CDC_strength_training_for_older_adults.gif"
+        static let shoulderStretch = "https://upload.wikimedia.org/wikipedia/commons/c/c0/Woman_stretching.JPG"
+        static let catCow = "https://upload.wikimedia.org/wikipedia/commons/8/8a/Yoga_cat-cow_pose.jpg"
+        static let lungeStretch = "https://upload.wikimedia.org/wikipedia/commons/8/8d/Backstretch-CDC_strength_training_for_older_adults.gif"
+        static let hipFlexor = "https://upload.wikimedia.org/wikipedia/commons/c/c0/Woman_stretching.JPG"
     }
 
     private static func buildWorkoutNotes(

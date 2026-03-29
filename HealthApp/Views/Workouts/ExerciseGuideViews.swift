@@ -51,7 +51,7 @@ struct ExerciseGuideDetailView: View {
                             }
                         }
                     } else {
-                        Text("Follow your plan’s sets and reps. Add step-by-step cues in Settings by regenerating with an API key for richer instructions.")
+                        Text("Follow your plan's sets and reps. Add step-by-step cues in Settings by regenerating with an API key for richer instructions.")
                             .font(.footnote)
                             .foregroundStyle(FocusPalette.textSecondary)
                     }
@@ -116,55 +116,31 @@ private struct FlowTagsRow: View {
 
 struct StretchGuideCard: View {
     let item: StretchItemDTO
-    @State private var expanded = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
-            } label: {
-                HStack {
-                    Text(item.name)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(FocusPalette.textPrimary)
-                        .multilineTextAlignment(.leading)
-                    Spacer()
-                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
-                        .foregroundStyle(FocusPalette.accent)
-                }
-            }
-            .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: 12) {
+            Text(item.name)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FocusPalette.textPrimary)
 
             if let h = item.holdSeconds {
-                Text("Hold ~\(h)s")
-                    .font(.caption2)
+                Text("Hold about \(h) seconds (each side if the steps say to switch).")
+                    .font(.caption)
                     .foregroundStyle(FocusPalette.textSecondary)
             }
 
-            if expanded {
-                if let urlStr = item.diagramURL, let url = URL(string: urlStr), ["http", "https"].contains(url.scheme?.lowercased()) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let img):
-                            img
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxHeight: 180)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        case .failure:
-                            EmptyView()
-                        case .empty:
-                            ProgressView()
-                        @unknown default:
-                            EmptyView()
-                        }
-                    }
-                }
+            StretchReferenceDiagramView(stretchName: item.name, diagramURLString: item.diagramURL)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Steps")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textSecondary)
                 ForEach(Array(item.steps.enumerated()), id: \.offset) { i, s in
                     HStack(alignment: .top, spacing: 8) {
                         Text("\(i + 1).")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(FocusPalette.accent)
+                            .frame(minWidth: 16, alignment: .leading)
                         Text(s)
                             .font(.caption)
                             .foregroundStyle(FocusPalette.textSecondary)
@@ -175,6 +151,99 @@ struct StretchGuideCard: View {
         .padding(12)
         .background(FocusPalette.surfaceElevated)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+// MARK: - Stretch diagrams (always visible for beginners)
+
+private struct StretchReferenceDiagramView: View {
+    let stretchName: String
+    let diagramURLString: String?
+
+    @State private var remoteFailed = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let urlStr = diagramURLString,
+               let url = URL(string: urlStr),
+               ["http", "https"].contains(url.scheme?.lowercased()),
+               !remoteFailed {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let img):
+                        img
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxHeight: 200)
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(FocusPalette.border, lineWidth: 1)
+                            )
+                    case .failure:
+                        Color.clear
+                            .frame(height: 1)
+                            .onAppear { remoteFailed = true }
+                    case .empty:
+                        ProgressView()
+                            .frame(maxWidth: .infinity, minHeight: 120)
+                    @unknown default:
+                        Color.clear.onAppear { remoteFailed = true }
+                    }
+                }
+                Text("Reference photo / animation (Wikimedia Commons or CDC public domain).")
+                    .font(.caption2)
+                    .foregroundStyle(FocusPalette.textSecondary)
+            }
+
+            if remoteFailed || diagramURLString == nil || URL(string: diagramURLString ?? "") == nil {
+                stretchOfflineFallback
+            }
+        }
+    }
+
+    private var stretchOfflineFallback: some View {
+        VStack(spacing: 10) {
+            Image(systemName: StretchDiagramFallback.symbol(for: stretchName))
+                .font(.system(size: 56))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(FocusPalette.accent.opacity(0.9))
+            Text("Could not load the online diagram, or none is set. Use the steps above and the link below for examples.")
+                .font(.caption)
+                .foregroundStyle(FocusPalette.textSecondary)
+                .multilineTextAlignment(.center)
+            if let link = StretchDiagramFallback.imageSearchURL(query: stretchName) {
+                Link(destination: link) {
+                    Label("Search images for this stretch", systemImage: "safari")
+                        .font(.caption.weight(.semibold))
+                }
+                .tint(FocusPalette.accent)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(14)
+        .background(FocusPalette.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+}
+
+private enum StretchDiagramFallback {
+    static func symbol(for name: String) -> String {
+        let n = name.lowercased()
+        if n.contains("quad") || n.contains("thigh front") { return "figure.stand" }
+        if n.contains("hamstring") || n.contains("seated") { return "figure.flexibility" }
+        if n.contains("chest") || n.contains("pec") || n.contains("doorway") { return "arrow.left.and.right" }
+        if n.contains("shoulder") || n.contains("cross-body") || n.contains("cross body") { return "arrow.left.and.right" }
+        if n.contains("cat") || n.contains("cow") || n.contains("spine") { return "figure.flexibility" }
+        if n.contains("lunge") || n.contains("hip flexor") || n.contains("thoracic") { return "figure.walk" }
+        return "figure.cooldown"
+    }
+
+    static func imageSearchURL(query: String) -> URL? {
+        let q = "\(query) stretch exercise demonstration"
+        guard let enc = q.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else { return nil }
+        return URL(string: "https://www.bing.com/images/search?q=\(enc)")
     }
 }
 
