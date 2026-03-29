@@ -14,6 +14,8 @@ struct DietPaneView: View {
     @State private var weightText = ""
     @State private var notes = ""
     @State private var useImperialWeight: Bool = true
+    @State private var weightEditorExpanded = false
+    @State private var weightSavedBanner = false
 
     private var profile: UserHealthProfile? { profiles.first }
     private var imperial: Bool { profile?.measurementSystemRaw == "imperial" }
@@ -26,6 +28,11 @@ struct DietPaneView: View {
     private var goalCalories: Int { mealPlan?.targetDailyCalories ?? 2000 }
 
     private var todayKey: String { DayKey.string(for: selectedDate) }
+
+    private var hasSavedWeightForSelectedDay: Bool {
+        guard let w = weights.first(where: { $0.dayKey == todayKey }) else { return false }
+        return w.weightKg > 0
+    }
 
     private var mealsForSelectedDay: [PlannedMealDTO] {
         guard let mp = mealPlan else { return [] }
@@ -80,13 +87,43 @@ struct DietPaneView: View {
                                 .pickerStyle(.segmented)
                                 .frame(maxWidth: 140)
                             }
-                            TextField(useImperialWeight ? "Weight (lb)" : "Weight (kg)", text: $weightText)
-                                .keyboardType(.decimalPad)
-                                .textFieldStyle(.roundedBorder)
-                            Button("Save weight") { saveWeight() }
-                                .buttonStyle(.borderedProminent)
-                                .tint(FocusPalette.accent)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if weightSavedBanner {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(FocusPalette.positive)
+                                    Text("Weight saved for this day.")
+                                        .font(.subheadline.weight(.medium))
+                                        .foregroundStyle(FocusPalette.textPrimary)
+                                }
+                            }
+
+                            if hasSavedWeightForSelectedDay && !weightEditorExpanded {
+                                HStack(alignment: .center, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(formattedSavedWeightLine)
+                                            .font(.subheadline.weight(.semibold))
+                                            .foregroundStyle(FocusPalette.textPrimary)
+                                        Text("Tap Edit to change this day’s entry.")
+                                            .font(.caption2)
+                                            .foregroundStyle(FocusPalette.textSecondary)
+                                    }
+                                    Spacer()
+                                    Button("Edit") {
+                                        weightEditorExpanded = true
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .tint(FocusPalette.accent)
+                                }
+                            } else {
+                                TextField(useImperialWeight ? "Weight (lb)" : "Weight (kg)", text: $weightText)
+                                    .keyboardType(.decimalPad)
+                                    .textFieldStyle(.roundedBorder)
+                                Button("Save weight") { saveWeight() }
+                                    .buttonStyle(.borderedProminent)
+                                    .tint(FocusPalette.accent)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
                     }
 
@@ -101,7 +138,10 @@ struct DietPaneView: View {
                 useImperialWeight = imperial
                 loadFieldsForSelectedDay()
             }
-            .onChange(of: selectedDate) { _, _ in loadFieldsForSelectedDay() }
+            .onChange(of: selectedDate) { _, _ in
+                weightEditorExpanded = false
+                loadFieldsForSelectedDay()
+            }
             .onChange(of: imperial) { _, v in
                 useImperialWeight = v
                 loadFieldsForSelectedDay()
@@ -302,6 +342,15 @@ struct DietPaneView: View {
         }
     }
 
+    private var formattedSavedWeightLine: String {
+        let k = todayKey
+        guard let w = weights.first(where: { $0.dayKey == k }), w.weightKg > 0 else { return "" }
+        if useImperialWeight {
+            return String(format: "%.1f lb", MeasureConversion.kgToLb(w.weightKg))
+        }
+        return String(format: "%.1f kg", w.weightKg)
+    }
+
     private func loadFieldsForSelectedDay() {
         let k = todayKey
         if let n = nutritionLogs.first(where: { $0.dayKey == k }) {
@@ -319,6 +368,9 @@ struct DietPaneView: View {
             }
         } else {
             weightText = ""
+        }
+        if hasSavedWeightForSelectedDay {
+            weightEditorExpanded = false
         }
     }
 
@@ -355,6 +407,11 @@ struct DietPaneView: View {
             modelContext.insert(row)
         }
         try? modelContext.save()
+        weightEditorExpanded = false
+        weightSavedBanner = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            weightSavedBanner = false
+        }
         loadFieldsForSelectedDay()
     }
 }

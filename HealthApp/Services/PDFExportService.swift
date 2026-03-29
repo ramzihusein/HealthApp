@@ -14,6 +14,7 @@ enum PDFExportService {
         nutritionLogs: [DailyNutritionLog],
         weightEntries: [DailyWeightEntry],
         workoutSessions: [WorkoutSessionLog],
+        cardioSessions: [CardioSessionLog] = [],
         generatedAt: Date = .now
     ) -> Data {
         let goalCal = mealPlan?.targetDailyCalories
@@ -50,7 +51,7 @@ enum PDFExportService {
             let weekLabel = weekRangeLabel(weekDays)
             state.drawHeading("This week (\(weekLabel))")
 
-            let trainingDays = Set(weekDays.filter { dayHasWorkoutLog($0, sessions: workoutSessions) }.map { DayKey.string(for: $0) }).count
+            let trainingDays = Set(weekDays.filter { dayHasWorkoutLog($0, sessions: workoutSessions, cardio: cardioSessions) }.map { DayKey.string(for: $0) }).count
             let weightDaysInWeek = weekDays.filter { wtByKey[DayKey.string(for: $0)] != nil }.count
             let calorieLogDays = weekDays.filter { (nutByKey[DayKey.string(for: $0)]?.caloriesIn ?? 0) > 0 }.count
 
@@ -69,7 +70,7 @@ enum PDFExportService {
 
             state.drawHeading("Weekly goals — results", size: 14)
             state.drawWeeklyGoalRow(
-                title: "Training consistency (≥3 days with logged sets)",
+                title: "Training consistency (≥3 days with logged strength or cardio)",
                 met: trainingDays >= 3,
                 detail: "\(trainingDays) day(s) with workout logs this week."
             )
@@ -121,7 +122,7 @@ enum PDFExportService {
                     calStr = "—"
                     calMet = "N/A"
                 }
-                let wo = dayHasWorkoutLog(d, sessions: workoutSessions)
+                let wo = dayHasWorkoutLog(d, sessions: workoutSessions, cardio: cardioSessions)
                 let woStr = wo ? "Logged" : "—"
                 let wStr = wtByKey[k].map { String(format: "%.1f kg", $0.weightKg) } ?? "—"
                 state.drawTableRow(
@@ -189,18 +190,30 @@ enum PDFExportService {
 
             state.drawHeading("Recent workout logs", size: 14)
             let byDay = Dictionary(grouping: workoutSessions, by: { DayKey.string(for: $0.dayDate) })
-            if byDay.isEmpty {
-                state.drawLine("No workout sets logged yet.", font: .italicSystemFont(ofSize: 11), color: muted)
+            let cardioByDay = Dictionary(grouping: cardioSessions.filter { $0.completedMinutes > 0 }, by: \.dayKey)
+            let logKeys = Set(byDay.keys).union(cardioByDay.keys)
+            if logKeys.isEmpty {
+                state.drawLine("No strength or cardio logged yet.", font: .italicSystemFont(ofSize: 11), color: muted)
             } else {
-                for k in byDay.keys.sorted().suffix(7) {
+                for k in logKeys.sorted().suffix(7) {
                     let sessions = (byDay[k] ?? []).sorted { $0.sortOrder < $1.sortOrder }
-                    let title = sessions.first.map { formattedDate($0.dayDate) } ?? k
+                    let cardioRows = (cardioByDay[k] ?? []).sorted { $0.sortOrder < $1.sortOrder }
+                    let titleDate = sessions.first?.dayDate ?? cardioRows.first?.dayDate
+                    let title = titleDate.map { formattedDate($0) } ?? k
                     state.drawLine(title, font: .boldSystemFont(ofSize: 11))
                     for s in sessions {
                         let setsDesc = s.sets.sorted { $0.setIndex < $1.setIndex }
                             .map { "\($0.reps)×\(String(format: "%.1f", $0.weightKg))kg" }
                             .joined(separator: ", ")
                         state.drawLine("  · \(s.exerciseName): \(setsDesc)", font: .systemFont(ofSize: 10), color: .darkGray)
+                    }
+                    for c in cardioRows {
+                        let tail = c.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "" : " — \(c.notes)"
+                        state.drawLine(
+                            "  · \(c.blockTitle) (cardio): \(c.completedMinutes) min\(tail)",
+                            font: .systemFont(ofSize: 10),
+                            color: .darkGray
+                        )
                     }
                 }
             }
@@ -312,8 +325,9 @@ enum PDFExportService {
         }
     }
 
-    private static func dayHasWorkoutLog(_ day: Date, sessions: [WorkoutSessionLog]) -> Bool {
-        let k = DayKey.string(for: day)
+    private static func dayHasWorkoutLog(_ day: Date, sessions: [WorkoutSessionLog], cardio: [CardioSessionLog]) -> Bool {
+        let k = DayKey.string(for: CalendarDay.startOfDay(day))
+        if cardio.contains(where: { $0.dayKey == k && $0.completedMinutes > 0 }) { return true }
         return sessions.filter { $0.dayKey == k }.contains { s in
             s.sets.contains { $0.reps > 0 || $0.weightKg > 0 }
         }

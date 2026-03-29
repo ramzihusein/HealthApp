@@ -7,6 +7,7 @@ struct WorkoutDayDetailView: View {
     let workoutPlan: WorkoutPlanDTO?
 
     @Query private var allSessions: [WorkoutSessionLog]
+    @Query(sort: \CardioSessionLog.dayDate) private var allCardioLogs: [CardioSessionLog]
     @Query private var profiles: [UserHealthProfile]
 
     @State private var usePounds: Bool = false
@@ -24,6 +25,14 @@ struct WorkoutDayDetailView: View {
 
     private var sessionsForDay: [WorkoutSessionLog] {
         allSessions.filter { $0.dayKey == dayKey }.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    private var cardioForDay: [CardioSessionLog] {
+        allCardioLogs.filter { $0.dayKey == dayKey }.sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    private func cardioLog(for blockId: String) -> CardioSessionLog? {
+        cardioForDay.first { $0.cardioBlockId == blockId }
     }
 
     var body: some View {
@@ -81,9 +90,11 @@ struct WorkoutDayDetailView: View {
             if let day = planDay, !day.cardioBlocksResolved().isEmpty {
                 Section {
                     ForEach(day.cardioBlocksResolved()) { b in
-                        CardioBlockCard(block: b)
-                            .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
-                            .listRowBackground(Color.clear)
+                        if let log = cardioLog(for: b.id) {
+                            CardioBlockLogCard(block: b, log: log)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                                .listRowBackground(Color.clear)
+                        }
                     }
                 } header: {
                     Text("Cardio plan")
@@ -130,6 +141,26 @@ struct WorkoutDayDetailView: View {
                 ForEach(sessionsForDay, id: \.id) { session in
                     ExerciseLogCard(session: session, usePounds: usePounds)
                 }
+                if !cardioForDay.isEmpty {
+                    ForEach(cardioForDay, id: \.logKey) { log in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(log.blockTitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color(red: 0.35, green: 0.82, blue: 0.88))
+                            Text("\(log.completedMinutes) min logged · plan \(log.targetDurationMinutes) min")
+                                .font(.caption)
+                                .foregroundStyle(FocusPalette.textSecondary)
+                            if !log.notes.isEmpty {
+                                Text(log.notes)
+                                    .font(.caption2)
+                                    .foregroundStyle(FocusPalette.textSecondary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 6)
+                        .listRowBackground(FocusPalette.surfaceElevated)
+                    }
+                }
             } header: {
                 Text("Daily progress recap")
                     .foregroundStyle(FocusPalette.textSecondary)
@@ -143,6 +174,7 @@ struct WorkoutDayDetailView: View {
             usePounds = profile?.measurementSystemRaw == "imperial"
             guard let plan = workoutPlan else { return }
             try? WorkoutSessionBootstrapper.ensureSessionsForDay(date: dayStart, plan: plan, context: modelContext)
+            try? CardioSessionBootstrapper.ensureForDay(date: dayStart, plan: plan, context: modelContext)
             try? modelContext.save()
         }
         .onChange(of: profiles.first?.measurementSystemRaw) { _, new in
@@ -170,6 +202,7 @@ struct WorkoutExerciseDetailView: View {
 
     @State private var tab: TabSelection = .progress
     @State private var usePounds: Bool = false
+    @State private var showProgressSavedFlash = false
 
     private var dayStart: Date { CalendarDay.startOfDay(dayDate) }
     private var dayKey: String { DayKey.string(for: dayStart) }
@@ -209,11 +242,32 @@ struct WorkoutExerciseDetailView: View {
             usePounds = profiles.first?.measurementSystemRaw == "imperial"
             guard let plan = workoutPlan else { return }
             try? WorkoutSessionBootstrapper.ensureSessionsForDay(date: dayStart, plan: plan, context: modelContext)
+            try? CardioSessionBootstrapper.ensureForDay(date: dayStart, plan: plan, context: modelContext)
             try? modelContext.save()
         }
         .onChange(of: profiles.first?.measurementSystemRaw) { _, new in
             guard let new else { return }
             usePounds = (new == "imperial")
+        }
+        .overlay(alignment: .top) {
+            if showProgressSavedFlash {
+                Text("Saved")
+                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(FocusPalette.positive.opacity(0.92))
+                    .foregroundStyle(FocusPalette.background)
+                    .clipShape(Capsule())
+                    .padding(.top, 8)
+            }
+        }
+    }
+
+    private func persistExerciseProgress() {
+        try? modelContext.save()
+        showProgressSavedFlash = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            showProgressSavedFlash = false
         }
     }
 
@@ -225,9 +279,17 @@ struct WorkoutExerciseDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(FocusPalette.textSecondary)
                         .padding(.horizontal, 20)
+                    if let sg = exercise.suggestedWeightKg, sg > 0 {
+                        let disp = usePounds ? MeasureConversion.kgToLb(sg) : sg
+                        let u = usePounds ? "lb" : "kg"
+                        Text("Suggested start (from plan): \(String(format: "%.1f", disp)) \(u) — you can change it below.")
+                            .font(.caption)
+                            .foregroundStyle(FocusPalette.positive)
+                            .padding(.horizontal, 20)
+                    }
                     VStack(alignment: .leading, spacing: 12) {
                         ForEach(s.sets.sorted { $0.setIndex < $1.setIndex }, id: \.persistentModelID) { set in
-                            SetEntryRow(set: set, usePounds: usePounds)
+                            SetEntryRow(set: set, usePounds: usePounds, onPersist: persistExerciseProgress)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -252,8 +314,10 @@ struct WorkoutExerciseDetailView: View {
 }
 
 private struct ExerciseLogCard: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var session: WorkoutSessionLog
     var usePounds: Bool
+    @State private var showSavedFlash = false
 
     private var kind: ExerciseKind {
         ExerciseKind.classify(name: session.exerciseName, repsHint: session.targetRepsHint)
@@ -282,10 +346,23 @@ private struct ExerciseLogCard: View {
             }
 
             ForEach(session.sets.sorted { $0.setIndex < $1.setIndex }, id: \.persistentModelID) { set in
-                SetEntryRow(set: set, usePounds: usePounds)
+                SetEntryRow(set: set, usePounds: usePounds, onPersist: persistSets)
+            }
+            if showSavedFlash {
+                Text("Saved")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(FocusPalette.positive)
             }
         }
         .listRowBackground(FocusPalette.surfaceElevated)
         .padding(.vertical, 6)
+    }
+
+    private func persistSets() {
+        try? modelContext.save()
+        showSavedFlash = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            showSavedFlash = false
+        }
     }
 }

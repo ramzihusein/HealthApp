@@ -2,7 +2,12 @@ import Foundation
 
 /// Deterministic rich plans when no LLM key is set. Respects profile training prefs and equipment tags (`equipmentCSV`).
 enum MockPlanBuilder {
-    static func build(for profile: UserHealthProfile) -> (workout: WorkoutPlanDTO, meal: MealPlanDTO) {
+    static func build(
+        for profile: UserHealthProfile,
+        planMonthSequence: Int = 1,
+        priorLiftMaxKgByExerciseName: [String: Double] = [:],
+        priorWorkoutPlanJSON: String? = nil
+    ) -> (workout: WorkoutPlanDTO, meal: MealPlanDTO) {
         let goals = profile.goals.map { $0.lowercased() }
         let lose = goals.contains { $0.contains("lose") || $0.contains("fat") }
         let gain = goals.contains { $0.contains("gain") || $0.contains("muscle") }
@@ -25,7 +30,7 @@ enum MockPlanBuilder {
             label: "Week 1 — \(liftDays)× strength · \(cardioDays)× cardio · ~\(mins) min sessions",
             days: days
         )
-        let workout = WorkoutPlanDTO(
+        var workout = WorkoutPlanDTO(
             programNotes: buildWorkoutNotes(
                 lose: lose,
                 gain: gain,
@@ -34,13 +39,106 @@ enum MockPlanBuilder {
                 liftDays: liftDays,
                 cardioDays: cardioDays,
                 sessionMins: mins,
-                equipment: eq
+                equipment: eq,
+                planMonthSequence: planMonthSequence
             ),
             weeks: [week]
         )
 
+        if planMonthSequence > 1 {
+            workout = applySuggestedWeights(to: workout, hints: priorLiftMaxKgByExerciseName)
+            workout = bumpCardioDurations(workout, factor: 1.07)
+            if let json = priorWorkoutPlanJSON, (try? PlanCodec.decodeWorkout(from: json)) != nil {
+                var note = workout.programNotes ?? ""
+                note += " Cardio durations nudged ~7% vs your prior month’s plan; adjust if needed."
+                workout.programNotes = note
+            }
+        }
+
         let meal = buildMeals(for: profile, lose: lose, gain: gain)
         return (workout, meal)
+    }
+
+    private static func applySuggestedWeights(to plan: WorkoutPlanDTO, hints: [String: Double]) -> WorkoutPlanDTO {
+        guard !hints.isEmpty else { return plan }
+        WorkoutPlanDTO(
+            programNotes: plan.programNotes,
+            weeks: plan.weeks.map { w in
+                WorkoutWeekDTO(label: w.label, days: w.days.map { applySuggestedWeights(to: $0, hints: hints) })
+            }
+        )
+    }
+
+    private static func applySuggestedWeights(to day: WorkoutDayDTO, hints: [String: Double]) -> WorkoutDayDTO {
+        var d = day
+        if let le = d.liftingExercises {
+            d.liftingExercises = le.map { applySuggestedWeight(to: $0, hints: hints) }
+        }
+        d.exercises = d.exercises.map { ex in
+            ExerciseKind.classify(name: ex.name, repsHint: ex.reps) == .lifting
+                ? applySuggestedWeight(to: ex, hints: hints)
+                : ex
+        }
+        return d
+    }
+
+    private static func applySuggestedWeight(to ex: ExerciseTemplateDTO, hints: [String: Double]) -> ExerciseTemplateDTO {
+        var e = ex
+        let prev = matchedPreviousMaxKg(for: ex.name, hints: hints)
+        if prev > 0 {
+            e.suggestedWeightKg = MockProgression.suggestedNextKg(from: prev, exerciseName: ex.name)
+        }
+        return e
+    }
+
+    private static func matchedPreviousMaxKg(for exerciseName: String, hints: [String: Double]) -> Double {
+        if let v = hints[exerciseName] { return v }
+        let lower = exerciseName.lowercased()
+        var best = 0.0
+        for (k, v) in hints {
+            let kl = k.lowercased()
+            if lower.contains(kl) || kl.contains(lower) { best = max(best, v) }
+        }
+        return best
+    }
+
+    private static func bumpCardioDurations(_ plan: WorkoutPlanDTO, factor: Double) -> WorkoutPlanDTO {
+        WorkoutPlanDTO(
+            programNotes: plan.programNotes,
+            weeks: plan.weeks.map { w in
+                WorkoutWeekDTO(label: w.label, days: w.days.map { bumpCardio(in: $0, factor: factor) })
+            }
+        )
+    }
+
+    private static func bumpCardio(in day: WorkoutDayDTO, factor: Double) -> WorkoutDayDTO {
+        var d = day
+        guard let blocks = d.cardioBlocks, !blocks.isEmpty else { return d }
+        d.cardioBlocks = blocks.map { b in
+            var bb = b
+            let next = Int((Double(b.durationMinutes) * factor).rounded())
+            bb.durationMinutes = min(180, max(5, next))
+            return bb
+        }
+        return d
+    }
+
+    private enum MockProgression {
+        static func suggestedNextKg(from previousMaxKg: Double, exerciseName: String) -> Double {
+            guard previousMaxKg > 0 else { return 0 }
+            let incrementPct = isLowerBody(exerciseName) ? 0.05 : 0.025
+            let raw = previousMaxKg * (1 + incrementPct)
+            return (raw * 2).rounded() / 2
+        }
+
+        private static func isLowerBody(_ name: String) -> Bool {
+            let n = name.lowercased()
+            let keys = [
+                "squat", "deadlift", "rdl", "leg", "quad", "ham", "glute", "calf", "lunge",
+                "hip thrust", "leg press", "goblet", "split squat", "step-up", "extension", "curl leg", "nordic"
+            ]
+            return keys.contains { n.contains($0) }
+        }
     }
 
     private static func equipmentSet(_ profile: UserHealthProfile) -> Set<String> {
@@ -512,9 +610,15 @@ enum MockPlanBuilder {
         liftDays: Int,
         cardioDays: Int,
         sessionMins: Int,
-        equipment: Set<String>
+        equipment: Set<String>,
+        planMonthSequence: Int
     ) -> String {
         var parts: [String] = []
+        if planMonthSequence <= 1 {
+            parts.append("Month 1 is your baseline: log every strength set (weight and reps) accurately so the next plan can suggest loads using your real numbers.")
+        } else {
+            parts.append("Suggested weights are starting points from last month’s logs with small, evidence-style bumps (~2.5% upper / ~5% lower); override anytime in the app.")
+        }
         parts.append("Split alternates push, pull, and legs with separate cardio blocks (no yoga). Strength and cardio are listed separately in the app.")
         parts.append("Each lift day targets major groups with ≥3 moves and ≥12 hard sets per group (mock template). Target session length ~\(sessionMins) min—trim rest if needed.")
         parts.append("Equipment assumed: \(equipment.sorted().joined(separator: ", ")).")

@@ -4,8 +4,16 @@ import SwiftData
 struct WorkoutsPaneView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \StoredGeneratedPlans.generatedAt, order: .reverse) private var plans: [StoredGeneratedPlans]
+    @Query(sort: \CardioSessionLog.dayDate) private var allCardioLogs: [CardioSessionLog]
     @State private var weekAnchor = Date()
     @State private var selectedDay: Date?
+
+    private var activePlanRecord: StoredGeneratedPlans? { plans.first }
+
+    private var planPeriodEnded: Bool {
+        guard let end = activePlanRecord?.planPeriodEnd else { return false }
+        return CalendarDay.startOfDay(Date()) > CalendarDay.startOfDay(end)
+    }
 
     private var planDTO: WorkoutPlanDTO? {
         guard let p = plans.first else { return nil }
@@ -16,6 +24,19 @@ struct WorkoutsPaneView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    if planPeriodEnded {
+                        FocusCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Time for next month’s plan")
+                                    .font(.headline)
+                                    .foregroundStyle(FocusPalette.textPrimary)
+                                Text("Open the Settings tab and tap “Regenerate workout & meal plans.” Your last month of logs will guide suggested weights and cardio targets for the new block.")
+                                    .font(.caption)
+                                    .foregroundStyle(FocusPalette.textSecondary)
+                            }
+                        }
+                    }
+
                     if let dto = planDTO, let notes = dto.programNotes, !notes.isEmpty {
                         FocusCard {
                             Text(notes)
@@ -81,9 +102,15 @@ struct WorkoutsPaneView: View {
         }
     }
 
+    private func cardioLog(day: Date, blockId: String) -> CardioSessionLog? {
+        let dk = DayKey.string(for: CalendarDay.startOfDay(day))
+        return allCardioLogs.first { $0.dayKey == dk && $0.cardioBlockId == blockId }
+    }
+
     private func bootstrapSessionsForSelectedDay() {
         guard let d = selectedDay, let p = planDTO else { return }
         try? WorkoutSessionBootstrapper.ensureSessionsForDay(date: d, plan: p, context: modelContext)
+        try? CardioSessionBootstrapper.ensureForDay(date: d, plan: p, context: modelContext)
         try? modelContext.save()
     }
 
@@ -132,9 +159,14 @@ struct WorkoutsPaneView: View {
                     .foregroundStyle(FocusPalette.textSecondary)
                 VStack(spacing: 10) {
                     ForEach(blocks) { b in
-                        CardioBlockCard(block: b)
+                        if let log = cardioLog(day: d, blockId: b.id) {
+                            CardioBlockLogCard(block: b, log: log)
+                        }
                     }
                 }
+                Text("Log minutes and notes here or in Daily progress recap.")
+                    .font(.caption2)
+                    .foregroundStyle(FocusPalette.textSecondary)
             }
         }
     }

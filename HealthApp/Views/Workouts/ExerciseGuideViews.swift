@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct ExerciseGuideDetailView: View {
     let exercise: ExerciseTemplateDTO
@@ -166,5 +167,77 @@ struct CardioBlockCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(red: 0.08, green: 0.22, blue: 0.28).opacity(0.9))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct CardioBlockLogCard: View {
+    let block: CardioBlockDTO
+    @Bindable var log: CardioSessionLog
+    @Environment(\.modelContext) private var modelContext
+    @State private var showSavedFlash = false
+
+    private var minutesTextBinding: Binding<String> {
+        Binding(
+            get: { log.completedMinutes == 0 ? "" : "\(log.completedMinutes)" },
+            set: { newVal in
+                log.completedMinutes = Int(newVal.filter { $0.isNumber }) ?? 0
+                persist()
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            CardioBlockCard(block: block)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Log completion")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(FocusPalette.textSecondary)
+                HStack(spacing: 10) {
+                    TextField("0", text: minutesTextBinding)
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 72)
+                    Text("min completed")
+                        .font(.caption)
+                        .foregroundStyle(FocusPalette.textSecondary)
+                    Spacer(minLength: 8)
+                    Button("Match plan (\(block.durationMinutes))") {
+                        log.completedMinutes = block.durationMinutes
+                        persist()
+                    }
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .buttonStyle(.bordered)
+                    .tint(FocusPalette.accent)
+                }
+                TextField("Notes (pace, distance, effort)", text: Binding(
+                    get: { log.notes },
+                    set: { log.notes = $0; persist() }
+                ))
+                .textFieldStyle(.roundedBorder)
+                if showSavedFlash {
+                    Text("Saved")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(FocusPalette.positive)
+                }
+            }
+            .padding(12)
+            .background(FocusPalette.surfaceElevated.opacity(0.95))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(FocusPalette.border.opacity(0.6), lineWidth: 1)
+            )
+        }
+    }
+
+    private func persist() {
+        try? modelContext.save()
+        showSavedFlash = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            showSavedFlash = false
+        }
     }
 }

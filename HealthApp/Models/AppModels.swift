@@ -99,19 +99,30 @@ final class StoredGeneratedPlans {
     var mealJSON: String
     var generatedAt: Date
     var llmModelUsed: String?
+    /// Inclusive calendar window this plan is meant for (Fuel / renewals). Nil = legacy single plan.
+    var planPeriodStart: Date?
+    var planPeriodEnd: Date?
+    /// 1 = first baseline month; increases each regeneration.
+    var planMonthSequence: Int = 1
 
     init(
         id: UUID = UUID(),
         workoutJSON: String,
         mealJSON: String,
         generatedAt: Date = .now,
-        llmModelUsed: String? = nil
+        llmModelUsed: String? = nil,
+        planPeriodStart: Date? = nil,
+        planPeriodEnd: Date? = nil,
+        planMonthSequence: Int = 1
     ) {
         self.id = id
         self.workoutJSON = workoutJSON
         self.mealJSON = mealJSON
         self.generatedAt = generatedAt
         self.llmModelUsed = llmModelUsed
+        self.planPeriodStart = planPeriodStart
+        self.planPeriodEnd = planPeriodEnd
+        self.planMonthSequence = planMonthSequence
     }
 }
 
@@ -163,6 +174,42 @@ final class LoggedSetEntry {
         self.reps = reps
         self.weightKg = weightKg
         self.session = session
+    }
+}
+
+/// Logged completion for a planned cardio block (one row per block per calendar day).
+@Model
+final class CardioSessionLog {
+    /// `dayKey|cardioBlockId` for uniqueness.
+    @Attribute(.unique) var logKey: String
+    var dayKey: String
+    var dayDate: Date
+    var cardioBlockId: String
+    var blockTitle: String
+    var targetDurationMinutes: Int
+    var completedMinutes: Int
+    var notes: String
+    var sortOrder: Int
+
+    init(
+        dayKey: String,
+        dayDate: Date,
+        cardioBlockId: String,
+        blockTitle: String,
+        targetDurationMinutes: Int,
+        completedMinutes: Int = 0,
+        notes: String = "",
+        sortOrder: Int = 0
+    ) {
+        self.logKey = "\(dayKey)|\(cardioBlockId)"
+        self.dayKey = dayKey
+        self.dayDate = dayDate
+        self.cardioBlockId = cardioBlockId
+        self.blockTitle = blockTitle
+        self.targetDurationMinutes = targetDurationMinutes
+        self.completedMinutes = completedMinutes
+        self.notes = notes
+        self.sortOrder = sortOrder
     }
 }
 

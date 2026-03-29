@@ -18,6 +18,8 @@ struct SettingsView: View {
     #if DEBUG
     @State private var showDebugResetConfirm = false
     @State private var debugResetError: String?
+    @State private var debugSeedSuccess = false
+    @State private var debugSeedError: String?
     #endif
 
     private var profile: UserHealthProfile? { profiles.first }
@@ -78,7 +80,7 @@ struct SettingsView: View {
                             Text("Regenerate plans")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("Uses your current profile. If no API key is available (built-in or your own), the app uses offline mock templates.")
+                            Text("Uses your current profile and (from month 2 onward) last month’s workout logs for suggested loads. Plans are scoped to the current calendar month—regenerate when a month ends or anytime you want a refresh. If no API key is available, the app uses offline mock templates.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
                             Button(action: regeneratePlans) {
@@ -136,9 +138,19 @@ struct SettingsView: View {
                             Text("Debug")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
+                            Text("Insert removable sample strength + cardio logs in the last calendar month (same window plan regeneration uses for month 2+). Then tap Regenerate above to test progression text and suggested loads. Removes any previous debug seed rows first.")
+                                .font(.caption)
+                                .foregroundStyle(FocusPalette.textSecondary)
+                            Button("Insert sample logs for prior month") {
+                                insertDebugProgressionSample()
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(FocusPalette.accent)
+
                             Text("Erase all SwiftData (profile, plans, logs, nutrition, weight), clear LLM-related UserDefaults and the stable user id, then insert a fresh profile. You will return to onboarding.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
+                                .padding(.top, 8)
                             Button("Reset local data (fresh install)") {
                                 showDebugResetConfirm = true
                             }
@@ -182,6 +194,19 @@ struct SettingsView: View {
                 Button("OK") { debugResetError = nil }
             } message: {
                 Text(debugResetError ?? "")
+            }
+            .alert("Sample logs inserted", isPresented: $debugSeedSuccess) {
+                Button("OK") {}
+            } message: {
+                Text("Prior month (\(DebugProgressionSampleSeed.priorMonthLabel())) has debug bench, squat, deadlift, OHP, and one cardio log. Regenerate workout & meal plans to run month 2+ with that data.")
+            }
+            .alert("Sample seed failed", isPresented: Binding(
+                get: { debugSeedError != nil },
+                set: { if !$0 { debugSeedError = nil } }
+            )) {
+                Button("OK") { debugSeedError = nil }
+            } message: {
+                Text(debugSeedError ?? "")
             }
             #endif
         }
@@ -235,33 +260,70 @@ struct SettingsView: View {
         guard let p = profile else { return }
         regenError = nil
         isRegeneratingPlans = true
-        Task {
+        Task { @MainActor in
             do {
-                let result = try await PlanGenerationService.generatePlans(for: p)
-                await MainActor.run {
-                    let existing = (try? modelContext.fetch(FetchDescriptor<StoredGeneratedPlans>())) ?? []
-                    existing.forEach { modelContext.delete($0) }
-                    let stored = StoredGeneratedPlans(
-                        workoutJSON: result.workoutJSON,
-                        mealJSON: result.mealJSON,
-                        llmModelUsed: result.model
+                let existing = (try? modelContext.fetch(FetchDescriptor<StoredGeneratedPlans>())) ?? []
+                let old = existing.first
+                let nextSeq = (old?.planMonthSequence ?? 0) + 1
+                let periodStart = CalendarDay.startOfMonth(containing: Date())
+                let periodEnd = CalendarDay.endOfMonth(containing: Date())
+                let priorAnchor = CalendarDay.calendar.date(byAdding: .month, value: -1, to: periodStart) ?? periodStart
+                let priorStart = CalendarDay.startOfMonth(containing: priorAnchor)
+                let priorEnd = CalendarDay.endOfMonth(containing: priorAnchor)
+                let allSessions = (try? modelContext.fetch(FetchDescriptor<WorkoutSessionLog>())) ?? []
+                let filtered = ProgressionSummaryBuilder.filterSessions(allSessions, from: priorStart, through: priorEnd)
+                let allCardio = (try? modelContext.fetch(FetchDescriptor<CardioSessionLog>())) ?? []
+                let filteredCardio = ProgressionSummaryBuilder.filterCardioLogs(allCardio, from: priorStart, through: priorEnd)
+                let narrative = nextSeq > 1
+                    ? ProgressionSummaryBuilder.narrativeForLLM(
+                        sessions: filtered,
+                        priorWorkoutPlanJSON: old?.workoutJSON,
+                        intervalStart: priorStart,
+                        intervalEnd: priorEnd,
+                        cardioSessionsInInterval: filteredCardio
                     )
-                    modelContext.insert(stored)
-                    p.updatedAt = Date.now
-                    try? modelContext.save()
-                    isRegeneratingPlans = false
-                    regenSuccess = true
-                }
+                    : ""
+                let liftHints = nextSeq > 1 ? ProgressionSummaryBuilder.maxLiftKgByExerciseName(sessions: filtered) : [:]
+
+                let result = try await PlanGenerationService.generatePlans(
+                    for: p,
+                    planMonthSequence: nextSeq,
+                    priorMonthSummaryForLLM: narrative,
+                    priorLiftMaxKgByExerciseName: liftHints,
+                    priorWorkoutPlanJSON: nextSeq > 1 ? old?.workoutJSON : nil
+                )
+                existing.forEach { modelContext.delete($0) }
+                let stored = StoredGeneratedPlans(
+                    workoutJSON: result.workoutJSON,
+                    mealJSON: result.mealJSON,
+                    llmModelUsed: result.model,
+                    planPeriodStart: periodStart,
+                    planPeriodEnd: periodEnd,
+                    planMonthSequence: nextSeq
+                )
+                modelContext.insert(stored)
+                p.updatedAt = Date.now
+                try? modelContext.save()
+                isRegeneratingPlans = false
+                regenSuccess = true
             } catch {
-                await MainActor.run {
-                    isRegeneratingPlans = false
-                    regenError = error.localizedDescription
-                }
+                isRegeneratingPlans = false
+                regenError = error.localizedDescription
             }
         }
     }
 
     #if DEBUG
+    private func insertDebugProgressionSample() {
+        debugSeedError = nil
+        do {
+            try DebugProgressionSampleSeed.replaceSampleLogsInPriorMonth(modelContext: modelContext)
+            debugSeedSuccess = true
+        } catch {
+            debugSeedError = error.localizedDescription
+        }
+    }
+
     private func performDebugReset() {
         debugResetError = nil
         do {

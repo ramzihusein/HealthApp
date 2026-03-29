@@ -23,9 +23,10 @@ enum WorkoutSessionBootstrapper {
                 predicate: #Predicate { $0.dayKey == dk && $0.exerciseId == exId }
             )
             if let existing = try context.fetch(fd).first {
-                syncSetCount(session: existing, target: ex.sets, context: context)
+                syncSetCount(session: existing, target: ex.sets, template: ex, context: context)
                 continue
             }
+            let seed = seedWeightKg(for: ex)
             let session = WorkoutSessionLog(
                 dayKey: dk,
                 dayDate: dayStart,
@@ -36,14 +37,19 @@ enum WorkoutSessionBootstrapper {
                 targetRepsHint: ex.reps
             )
             for s in 0..<ex.sets {
-                let row = LoggedSetEntry(setIndex: s, reps: 0, weightKg: 0, session: session)
+                let row = LoggedSetEntry(setIndex: s, reps: 0, weightKg: seed, session: session)
                 session.sets.append(row)
             }
             context.insert(session)
         }
     }
 
-    private static func syncSetCount(session: WorkoutSessionLog, target: Int, context: ModelContext) {
+    private static func seedWeightKg(for ex: ExerciseTemplateDTO) -> Double {
+        guard let s = ex.suggestedWeightKg, s > 0 else { return 0 }
+        return s
+    }
+
+    private static func syncSetCount(session: WorkoutSessionLog, target: Int, template: ExerciseTemplateDTO, context: ModelContext) {
         let current = session.sets.sorted { $0.setIndex < $1.setIndex }
         if current.count == target { return }
         if current.count > target {
@@ -53,9 +59,10 @@ enum WorkoutSessionBootstrapper {
             drop.forEach { context.delete($0) }
             return
         }
+        let seed = seedWeightKg(for: template)
         let start = current.count
         for s in start..<target {
-            let row = LoggedSetEntry(setIndex: s, reps: 0, weightKg: 0, session: session)
+            let row = LoggedSetEntry(setIndex: s, reps: 0, weightKg: seed, session: session)
             session.sets.append(row)
             context.insert(row)
         }

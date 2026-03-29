@@ -493,27 +493,54 @@ struct OnboardingFlowView: View {
             .joined(separator: ",")
         p.updatedAt = .now
 
-        Task {
+        Task { @MainActor in
             do {
-                let result = try await PlanGenerationService.generatePlans(for: p)
-                await MainActor.run {
-                    let existing = try? modelContext.fetch(FetchDescriptor<StoredGeneratedPlans>())
-                    existing?.forEach { modelContext.delete($0) }
-                    let stored = StoredGeneratedPlans(
-                        workoutJSON: result.workoutJSON,
-                        mealJSON: result.mealJSON,
-                        llmModelUsed: result.model
+                let existing = (try? modelContext.fetch(FetchDescriptor<StoredGeneratedPlans>())) ?? []
+                let old = existing.first
+                let nextSeq = (old?.planMonthSequence ?? 0) + 1
+                let periodStart = CalendarDay.startOfMonth(containing: Date())
+                let periodEnd = CalendarDay.endOfMonth(containing: Date())
+                let priorAnchor = CalendarDay.calendar.date(byAdding: .month, value: -1, to: periodStart) ?? periodStart
+                let priorStart = CalendarDay.startOfMonth(containing: priorAnchor)
+                let priorEnd = CalendarDay.endOfMonth(containing: priorAnchor)
+                let allSessions = (try? modelContext.fetch(FetchDescriptor<WorkoutSessionLog>())) ?? []
+                let filtered = ProgressionSummaryBuilder.filterSessions(allSessions, from: priorStart, through: priorEnd)
+                let allCardio = (try? modelContext.fetch(FetchDescriptor<CardioSessionLog>())) ?? []
+                let filteredCardio = ProgressionSummaryBuilder.filterCardioLogs(allCardio, from: priorStart, through: priorEnd)
+                let narrative = nextSeq > 1
+                    ? ProgressionSummaryBuilder.narrativeForLLM(
+                        sessions: filtered,
+                        priorWorkoutPlanJSON: old?.workoutJSON,
+                        intervalStart: priorStart,
+                        intervalEnd: priorEnd,
+                        cardioSessionsInInterval: filteredCardio
                     )
-                    modelContext.insert(stored)
-                    p.onboardingComplete = true
-                    try? modelContext.save()
-                    isGenerating = false
-                }
+                    : ""
+                let liftHints = nextSeq > 1 ? ProgressionSummaryBuilder.maxLiftKgByExerciseName(sessions: filtered) : [:]
+
+                let result = try await PlanGenerationService.generatePlans(
+                    for: p,
+                    planMonthSequence: nextSeq,
+                    priorMonthSummaryForLLM: narrative,
+                    priorLiftMaxKgByExerciseName: liftHints,
+                    priorWorkoutPlanJSON: nextSeq > 1 ? old?.workoutJSON : nil
+                )
+                existing.forEach { modelContext.delete($0) }
+                let stored = StoredGeneratedPlans(
+                    workoutJSON: result.workoutJSON,
+                    mealJSON: result.mealJSON,
+                    llmModelUsed: result.model,
+                    planPeriodStart: periodStart,
+                    planPeriodEnd: periodEnd,
+                    planMonthSequence: nextSeq
+                )
+                modelContext.insert(stored)
+                p.onboardingComplete = true
+                try? modelContext.save()
+                isGenerating = false
             } catch {
-                await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    isGenerating = false
-                }
+                errorMessage = error.localizedDescription
+                isGenerating = false
             }
         }
     }

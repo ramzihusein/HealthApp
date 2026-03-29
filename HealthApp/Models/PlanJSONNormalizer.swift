@@ -111,6 +111,10 @@ enum PlanJSONNormalizer {
                 ex["muscleGroupsTrained"] = [s]
             }
         }
+        if let sw = ex["suggestedWeightKg"] {
+            if let d = coerceToDouble(sw), d > 0 { ex["suggestedWeightKg"] = d }
+            else { ex["suggestedWeightKg"] = nil }
+        }
         return ex
     }
 
@@ -209,6 +213,14 @@ enum PlanJSONNormalizer {
         if let i = any as? Int { return i }
         if let n = any as? NSNumber { return n.intValue }
         if let s = any as? String, let i = Int(s.trimmingCharacters(in: .whitespaces)) { return i }
+        return nil
+    }
+
+    private static func coerceToDouble(_ any: Any) -> Double? {
+        if let d = any as? Double { return d }
+        if let n = any as? NSNumber { return n.doubleValue }
+        if let i = any as? Int { return Double(i) }
+        if let s = any as? String { return Double(s.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces)) }
         return nil
     }
 

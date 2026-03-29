@@ -7,6 +7,7 @@ struct ProgressOverviewView: View {
     @Query(sort: \DailyNutritionLog.dayDate) private var nutrition: [DailyNutritionLog]
     @Query(sort: \StoredGeneratedPlans.generatedAt, order: .reverse) private var plans: [StoredGeneratedPlans]
     @Query private var sessions: [WorkoutSessionLog]
+    @Query(sort: \CardioSessionLog.dayDate) private var cardioSessions: [CardioSessionLog]
     @Query private var profiles: [UserHealthProfile]
 
     private var profile: UserHealthProfile? { profiles.first }
@@ -20,7 +21,13 @@ struct ProgressOverviewView: View {
     private var workoutDaysThisWeekCount: Int {
         let days = CalendarDay.daysInWeek(containing: Date())
         let keys = Set(days.map { DayKey.string(for: $0) })
-        return Set(sessions.filter { keys.contains($0.dayKey) }.map(\.dayKey)).count
+        let liftKeys = Set(sessions.filter { keys.contains($0.dayKey) }.map(\.dayKey))
+        let cardioKeys = Set(
+            cardioSessions
+                .filter { keys.contains($0.dayKey) && $0.completedMinutes > 0 }
+                .map(\.dayKey)
+        )
+        return liftKeys.union(cardioKeys).count
     }
 
     private var weightDistinctDays: Int {
@@ -40,7 +47,7 @@ struct ProgressOverviewView: View {
                             Text("This week")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("\(workoutDaysThisWeekCount) days with logged lifts")
+                            Text("\(workoutDaysThisWeekCount) days with logged training")
                                 .font(.subheadline)
                                 .foregroundStyle(FocusPalette.textSecondary)
                             Text("Small, consistent sessions beat sporadic extremes.")

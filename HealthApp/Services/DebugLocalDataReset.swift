@@ -11,6 +11,9 @@ enum DebugLocalDataReset {
         let sessions = try modelContext.fetch(FetchDescriptor<WorkoutSessionLog>())
         sessions.forEach { modelContext.delete($0) }
 
+        let cardioLogs = try modelContext.fetch(FetchDescriptor<CardioSessionLog>())
+        cardioLogs.forEach { modelContext.delete($0) }
+
         let nutrition = try modelContext.fetch(FetchDescriptor<DailyNutritionLog>())
         nutrition.forEach { modelContext.delete($0) }
 

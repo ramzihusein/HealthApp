@@ -8,6 +8,7 @@ struct HealthAppApp: App {
         StoredGeneratedPlans.self,
         WorkoutSessionLog.self,
         LoggedSetEntry.self,
+        CardioSessionLog.self,
         DailyNutritionLog.self,
         DailyWeightEntry.self
     ])

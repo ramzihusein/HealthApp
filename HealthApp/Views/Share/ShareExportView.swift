@@ -12,6 +12,7 @@ struct ShareExportView: View {
     @Query(sort: \DailyNutritionLog.dayDate) private var nutrition: [DailyNutritionLog]
     @Query(sort: \DailyWeightEntry.dayDate) private var weights: [DailyWeightEntry]
     @Query private var sessions: [WorkoutSessionLog]
+    @Query(sort: \CardioSessionLog.dayDate) private var cardioSessions: [CardioSessionLog]
 
     @State private var pdfShareDocument: PDFShareDocument?
     @State private var exportErrorMessage: String?
@@ -38,7 +39,7 @@ struct ShareExportView: View {
                             Text("Export for your coach")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("Creates a multi-page PDF: weekly goals (met / not met), daily calorie and workout status, weight trend chart, calorie bar chart for the week, and recent lifts. Data comes from logs saved on this device.")
+                            Text("Creates a multi-page PDF: weekly goals (met / not met), daily calorie and workout status, weight trend chart, calorie bar chart for the week, and recent strength plus cardio logs. Data comes from logs saved on this device.")
                                 .font(.footnote)
                                 .foregroundStyle(FocusPalette.textSecondary)
                             Button("Build PDF") {
@@ -81,7 +82,8 @@ struct ShareExportView: View {
             mealPlan: meal,
             nutritionLogs: nutrition,
             weightEntries: weights,
-            workoutSessions: sessions
+            workoutSessions: sessions,
+            cardioSessions: cardioSessions
         )
         guard !data.isEmpty else {
             exportErrorMessage = "The PDF could not be generated."

@@ -37,6 +37,8 @@ struct ExerciseTemplateDTO: Codable, Equatable, Identifiable, Hashable {
     var diagramURL: String? = nil
     /// e.g. ["chest","shoulders"] — for plan QA / display.
     var muscleGroupsTrained: [String]? = nil
+    /// Prescribed working weight in kg for logging (month 2+ progression); user may override.
+    var suggestedWeightKg: Double? = nil
 }
 
 struct CardioBlockDTO: Codable, Equatable, Identifiable, Hashable {

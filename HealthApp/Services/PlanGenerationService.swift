@@ -65,12 +65,29 @@ enum PlanGenerationService {
 
     private static var openAIModel: String { LLMCredentialStore.resolvedModel() }
 
-    static func generatePlans(for profile: UserHealthProfile) async throws -> (workoutJSON: String, mealJSON: String, model: String?) {
+    static func generatePlans(
+        for profile: UserHealthProfile,
+        planMonthSequence: Int = 1,
+        priorMonthSummaryForLLM: String = "",
+        priorLiftMaxKgByExerciseName: [String: Double] = [:],
+        priorWorkoutPlanJSON: String? = nil
+    ) async throws -> (workoutJSON: String, mealJSON: String, model: String?) {
         if let key = openAIKey, !key.isEmpty {
-            let (w, m) = try await generateViaLLM(profile: profile, apiKey: key)
+            let (w, m) = try await generateViaLLM(
+                profile: profile,
+                apiKey: key,
+                planMonthSequence: planMonthSequence,
+                priorMonthSummaryForLLM: priorMonthSummaryForLLM,
+                priorWorkoutPlanJSON: priorWorkoutPlanJSON
+            )
             return (w, m, openAIModel)
         }
-        let mock = MockPlanBuilder.build(for: profile)
+        let mock = MockPlanBuilder.build(
+            for: profile,
+            planMonthSequence: planMonthSequence,
+            priorLiftMaxKgByExerciseName: priorLiftMaxKgByExerciseName,
+            priorWorkoutPlanJSON: priorWorkoutPlanJSON
+        )
         let wData = try PlanCodec.jsonEncoder.encode(mock.workout)
         let mData = try PlanCodec.jsonEncoder.encode(mock.meal)
         let w = String(data: wData, encoding: .utf8) ?? ""
@@ -78,8 +95,34 @@ enum PlanGenerationService {
         return (w, m, nil)
     }
 
-    private static func generateViaLLM(profile: UserHealthProfile, apiKey: String) async throws -> (String, String) {
-        let system = """
+    private static func monthlyPlanningInstructions(planMonthSequence: Int) -> String {
+        if planMonthSequence <= 1 {
+            return """
+
+            MONTHLY PLAN (first calendar month):
+            - Include about 4–5 weeks in "weeks".
+            - Omit suggestedWeightKg on lifting exercises (or null). The user establishes baseline loads by logging.
+            - In programNotes, state clearly that month 1 is for accurate logging so the next month can auto-suggest weights and cardio targets from real data.
+            """
+        }
+        return """
+
+        MONTHLY PLAN (continuation — month index \(planMonthSequence)):
+        - Include about 4–5 weeks for the next training month.
+        - Read priorMonthPerformanceSummary and priorWorkoutPlanJSON. Progress strength using conservative overload from logged maxes (common practice often uses roughly ~2–3% monthly for upper-body work and ~5–10% for lower-body when prior reps were completed with good form; choose smaller steps when unsure).
+        - For EVERY lifting exercise set "suggestedWeightKg" (number, kilograms) for the first working sets; the user can override in the app.
+        - Progress cardio in cardioBlocks vs the prior month when adherence was good (~5–10% more duration or a slightly faster easy pace); encode targets in durationMinutes and targetPace.
+        """
+    }
+
+    private static func generateViaLLM(
+        profile: UserHealthProfile,
+        apiKey: String,
+        planMonthSequence: Int,
+        priorMonthSummaryForLLM: String,
+        priorWorkoutPlanJSON: String?
+    ) async throws -> (String, String) {
+        let systemBase = """
         You are a certified strength & conditioning and nutrition planning assistant. Output ONLY valid JSON with top-level keys "workoutPlan" and "mealPlan" (camelCase).
 
         WORKOUT STRUCTURE (critical):
@@ -87,7 +130,7 @@ enum PlanGenerationService {
         - For EACH major muscle group trained that day: at least 3 distinct exercises AND at least 12 total working sets for that group (e.g. 4+4+4).
         - Separate STRENGTH from CARDIO in the JSON: put all resistance exercises in "liftingExercises" (array). Put cardio in "cardioBlocks" (array), NOT mixed into lifting.
         - Every day object MUST include "exercises" as an array (use [] if empty). Omitting it breaks parsing.
-        - Each lifting exercise: { id, name, sets, reps, restSec?, notes?, steps?: string[] (3-6 short cues), diagramURL?: string, muscleGroupsTrained?: string[] }. For diagramURL prefer a direct link to ONE image file you can verify (e.g. upload.wikimedia.org/.../...png or .jpg). If you cannot verify a real URL, omit diagramURL entirely — do not use placeholder or fake hosts. The app shows an image search link when omitted.
+        - Each lifting exercise: { id, name, sets, reps, restSec?, notes?, steps?: string[] (3-6 short cues), diagramURL?: string, muscleGroupsTrained?: string[], suggestedWeightKg?: number (kg; month 2+ only) }. For diagramURL prefer a direct link to ONE image file you can verify (e.g. upload.wikimedia.org/.../...png or .jpg). If you cannot verify a real URL, omit diagramURL entirely — do not use placeholder or fake hosts. The app shows an image search link when omitted.
         - Each cardioBlock: { id, title, modality (walk|jog|run|bike|row|swim|elliptical|incline_walk only — NEVER yoga), durationMinutes, targetPace (e.g. mph, min/mile, or conversational), intensityNote?, instructions?: string[] }.
         - Do NOT prescribe yoga as cardio. Stretching belongs in "stretchSession": { title?, items: [{ id, name, holdSeconds?, steps: string[], diagramURL? }] }.
         - Respect equipmentAvailable; avoid machines the user does not have.
@@ -99,8 +142,9 @@ enum PlanGenerationService {
 
         Align lift days and cardio days with the user's targets. Keep meals realistic for their cooking time and budget.
         """
+        let system = systemBase + monthlyPlanningInstructions(planMonthSequence: planMonthSequence)
 
-        let userPayload: [String: Any] = [
+        var userPayload: [String: Any] = [
             "stableUserId": UserAccountService.stableUserId.uuidString,
             "age": profile.age,
             "weightKg": profile.weightKg,
@@ -115,8 +159,15 @@ enum PlanGenerationService {
             "workoutSessionMinutes": profile.workoutSessionMinutes,
             "liftDaysPerWeek": profile.liftDaysPerWeek,
             "cardioDaysPerWeek": profile.cardioDaysPerWeek,
-            "equipmentAvailable": profile.equipmentTagsForPlanning
+            "equipmentAvailable": profile.equipmentTagsForPlanning,
+            "planMonthSequence": planMonthSequence
         ]
+        if !priorMonthSummaryForLLM.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            userPayload["priorMonthPerformanceSummary"] = priorMonthSummaryForLLM
+        }
+        if let pj = priorWorkoutPlanJSON, !pj.isEmpty {
+            userPayload["priorWorkoutPlanJSON"] = String(pj.prefix(12_000))
+        }
         let user = (try? JSONSerialization.data(withJSONObject: userPayload))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
 
