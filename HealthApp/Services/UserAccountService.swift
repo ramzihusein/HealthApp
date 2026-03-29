@@ -12,4 +12,11 @@ enum UserAccountService {
         UserDefaults.standard.set(u.uuidString, forKey: key)
         return u
     }
+
+    #if DEBUG
+    /// Removes the stable id so the next access generates a new UUID (used by debug “reset local data”).
+    static func clearStableUserIdForDebug() {
+        UserDefaults.standard.removeObject(forKey: key)
+    }
+    #endif
 }

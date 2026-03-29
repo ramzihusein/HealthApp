@@ -34,6 +34,7 @@
 		F1000000000000000000001A /* OnboardingLLMProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001B /* OnboardingLLMProvider.swift */; };
 		F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */; };
 		F1000000000000000000001C /* APIKeyField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001D /* APIKeyField.swift */; };
+		F1000000000000000000001D /* DebugLocalDataReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000001E /* DebugLocalDataReset.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		F2000000000000000000001B /* OnboardingLLMProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingLLMProvider.swift; sourceTree = "<group>"; };
 		F2000000000000000000001C /* LLMApiKeyHelpDisclosure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMApiKeyHelpDisclosure.swift; sourceTree = "<group>"; };
 		F2000000000000000000001D /* APIKeyField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyField.swift; sourceTree = "<group>"; };
+		F2000000000000000000001E /* DebugLocalDataReset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLocalDataReset.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,6 +149,7 @@
 				F20000000000000000000009 /* PlanGenerationService.swift */,
 				F2000000000000000000000A /* PDFExportService.swift */,
 				F2000000000000000000000B /* WorkoutSessionBootstrapper.swift */,
+				F2000000000000000000001E /* DebugLocalDataReset.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -329,6 +332,7 @@
 				F1000000000000000000001A /* OnboardingLLMProvider.swift in Sources */,
 				F1000000000000000000001B /* LLMApiKeyHelpDisclosure.swift in Sources */,
 				F1000000000000000000001C /* APIKeyField.swift in Sources */,
+				F1000000000000000000001D /* DebugLocalDataReset.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

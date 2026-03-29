@@ -14,6 +14,10 @@ struct SettingsView: View {
     @State private var isRegeneratingPlans = false
     @State private var regenError: String?
     @State private var regenSuccess = false
+    #if DEBUG
+    @State private var showDebugResetConfirm = false
+    @State private var debugResetError: String?
+    #endif
 
     private var profile: UserHealthProfile? { profiles.first }
 
@@ -113,6 +117,24 @@ struct SettingsView: View {
                             .font(.footnote)
                             .foregroundStyle(FocusPalette.positive)
                     }
+
+                    #if DEBUG
+                    FocusCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Debug")
+                                .font(.headline)
+                                .foregroundStyle(FocusPalette.textPrimary)
+                            Text("Erase all SwiftData (profile, plans, logs, nutrition, weight), clear LLM-related UserDefaults and the stable user id, then insert a fresh profile. You will return to onboarding.")
+                                .font(.caption)
+                                .foregroundStyle(FocusPalette.textSecondary)
+                            Button("Reset local data (fresh install)") {
+                                showDebugResetConfirm = true
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(FocusPalette.danger)
+                        }
+                    }
+                    #endif
                 }
                 .padding(20)
             }
@@ -134,6 +156,22 @@ struct SettingsView: View {
             } message: {
                 Text("New workout and meal plans are saved. Review the Train and Fuel tabs.")
             }
+            #if DEBUG
+            .alert("Reset all local data?", isPresented: $showDebugResetConfirm) {
+                Button("Cancel", role: .cancel) {}
+                Button("Reset", role: .destructive) { performDebugReset() }
+            } message: {
+                Text("This cannot be undone. Use only on simulator or test devices.")
+            }
+            .alert("Reset failed", isPresented: Binding(
+                get: { debugResetError != nil },
+                set: { if !$0 { debugResetError = nil } }
+            )) {
+                Button("OK") { debugResetError = nil }
+            } message: {
+                Text(debugResetError ?? "")
+            }
+            #endif
         }
     }
 
@@ -197,4 +235,19 @@ struct SettingsView: View {
             }
         }
     }
+
+    #if DEBUG
+    private func performDebugReset() {
+        debugResetError = nil
+        do {
+            try DebugLocalDataReset.wipeAllLocalData(modelContext: modelContext)
+            apiKey = ""
+            baseURL = ""
+            modelId = ""
+            loadFromStorageAndProfile()
+        } catch {
+            debugResetError = error.localizedDescription
+        }
+    }
+    #endif
 }
