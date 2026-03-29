@@ -46,7 +46,7 @@ struct SettingsView: View {
                             Text("AI plan generation")
                                 .font(.headline)
                                 .foregroundStyle(FocusPalette.textPrimary)
-                            Text("By default the app uses the built-in connection. Turn on the option below only if you want to bill your own OpenAI (or compatible) account.")
+                            Text("By default the app uses the built-in connection. Turn on the option below only if you want to bill your own OpenAI (or compatible) account. See Privacy policy for what is sent when plans are generated.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
 
@@ -108,6 +108,25 @@ struct SettingsView: View {
                             Text("Applies to baseline, Fuel weight, and default workout weight entry.")
                                 .font(.caption)
                                 .foregroundStyle(FocusPalette.textSecondary)
+                        }
+                    }
+
+                    FocusCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Privacy")
+                                .font(.headline)
+                                .foregroundStyle(FocusPalette.textPrimary)
+                            Text("How we handle on-device data, AI requests, and optional API keys.")
+                                .font(.caption)
+                                .foregroundStyle(FocusPalette.textSecondary)
+                            NavigationLink {
+                                PrivacyPolicyView()
+                            } label: {
+                                Text("Privacy policy")
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(FocusPalette.accent)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
                     }
 

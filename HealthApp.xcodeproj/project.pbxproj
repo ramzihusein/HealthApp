@@ -43,6 +43,10 @@
 		F1000000000000000000002B /* GoalDayScore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002B /* GoalDayScore.swift */; };
 		F1000000000000000000002C /* ProgressionSummaryBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002C /* ProgressionSummaryBuilder.swift */; };
 		F1000000000000000000002D /* GoalCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000000000000000000002D /* GoalCalendarView.swift */; };
+		F10000000000000000000030 /* PersistentStoreLauncher.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000030 /* PersistentStoreLauncher.swift */; };
+		F10000000000000000000031 /* DatabaseRecoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000031 /* DatabaseRecoveryView.swift */; };
+		F10000000000000000000032 /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000032 /* PrivacyPolicyView.swift */; };
+		F10000000000000000000034 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000034 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +89,10 @@
 		F2000000000000000000002B /* GoalDayScore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalDayScore.swift; sourceTree = "<group>"; };
 		F2000000000000000000002C /* ProgressionSummaryBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressionSummaryBuilder.swift; sourceTree = "<group>"; };
 		F2000000000000000000002D /* GoalCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoalCalendarView.swift; sourceTree = "<group>"; };
+		F20000000000000000000030 /* PersistentStoreLauncher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentStoreLauncher.swift; sourceTree = "<group>"; };
+		F20000000000000000000031 /* DatabaseRecoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseRecoveryView.swift; sourceTree = "<group>"; };
+		F20000000000000000000032 /* PrivacyPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyPolicyView.swift; sourceTree = "<group>"; };
+		F20000000000000000000034 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -118,6 +126,7 @@
 				F40000000000000000000008 /* Views */,
 				F20000000000000000000014 /* Assets.xcassets */,
 				F20000000000000000000015 /* Info.plist */,
+				F20000000000000000000034 /* PrivacyInfo.xcprivacy */,
 			);
 			path = HealthApp;
 			sourceTree = "<group>";
@@ -182,6 +191,7 @@
 				F2000000000000000000001E /* DebugLocalDataReset.swift */,
 				F2000000000000000000001F /* MockPlanBuilder.swift */,
 				F2000000000000000000002C /* ProgressionSummaryBuilder.swift */,
+				F20000000000000000000030 /* PersistentStoreLauncher.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -259,6 +269,8 @@
 			isa = PBXGroup;
 			children = (
 				F2000000000000000000001A /* SettingsView.swift */,
+				F20000000000000000000031 /* DatabaseRecoveryView.swift */,
+				F20000000000000000000032 /* PrivacyPolicyView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -330,6 +342,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F10000000000000000000014 /* Assets.xcassets in Resources */,
+				F10000000000000000000034 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -375,6 +388,9 @@
 				F1000000000000000000002B /* GoalDayScore.swift in Sources */,
 				F1000000000000000000002C /* ProgressionSummaryBuilder.swift in Sources */,
 				F1000000000000000000002D /* GoalCalendarView.swift in Sources */,
+				F10000000000000000000030 /* PersistentStoreLauncher.swift in Sources */,
+				F10000000000000000000031 /* DatabaseRecoveryView.swift in Sources */,
+				F10000000000000000000032 /* PrivacyPolicyView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

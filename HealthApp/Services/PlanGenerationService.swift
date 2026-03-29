@@ -103,6 +103,7 @@ enum PlanGenerationService {
             - Include about 4–5 weeks in "weeks".
             - Omit suggestedWeightKg on lifting exercises (or null). The user establishes baseline loads by logging.
             - In programNotes, state clearly that month 1 is for accurate logging so the next month can auto-suggest weights and cardio targets from real data.
+            - Prefer days that combine liftingExercises with cardioBlocks when that matches weekly lift/cardio targets (same-day strength + conditioning is expected, not exceptional).
             """
         }
         return """
@@ -112,6 +113,7 @@ enum PlanGenerationService {
         - Read priorMonthPerformanceSummary and priorWorkoutPlanJSON. Progress strength using conservative overload from logged maxes (common practice often uses roughly ~2–3% monthly for upper-body work and ~5–10% for lower-body when prior reps were completed with good form; choose smaller steps when unsure).
         - For EVERY lifting exercise set "suggestedWeightKg" (number, kilograms) for the first working sets; the user can override in the app.
         - Progress cardio in cardioBlocks vs the prior month when adherence was good (~5–10% more duration or a slightly faster easy pace); encode targets in durationMinutes and targetPace.
+        - Keep combining lifting and cardio on the same day where appropriate; progression applies to cardioBlocks whether they sit on lift days or cardio-only days.
         """
     }
 
@@ -128,7 +130,7 @@ enum PlanGenerationService {
         WORKOUT STRUCTURE (critical):
         - Use a sensible split (push/pull/legs, upper/lower, or bro split). Muscle groups trained the same day must make sense together.
         - For EACH major muscle group trained that day: at least 3 distinct exercises AND at least 12 total working sets for that group (e.g. 4+4+4).
-        - Separate STRENGTH from CARDIO in the JSON: put all resistance exercises in "liftingExercises" (array). Put cardio in "cardioBlocks" (array), NOT mixed into lifting.
+        - Separate STRENGTH from CARDIO in the JSON only structurally: put all resistance exercises in "liftingExercises" (array) and cardio in "cardioBlocks" (array). **Do NOT treat them as mutually exclusive**—the same day very often includes BOTH arrays filled (e.g. full lift session plus 15–35 min easy conditioning after or before lifts). Cardio-only days are fine when needed to hit weekly cardio frequency, but do not default to "never both on one day."
         - Every day object MUST include "exercises" as an array (use [] if empty). Omitting it breaks parsing.
         - Each lifting exercise: { id, name, sets, reps, restSec?, notes?, steps?: string[] (3-6 short cues), diagramURL?: string, muscleGroupsTrained?: string[], suggestedWeightKg?: number (kg; month 2+ only) }. For diagramURL prefer a direct link to ONE image file you can verify (e.g. upload.wikimedia.org/.../...png or .jpg). If you cannot verify a real URL, omit diagramURL entirely — do not use placeholder or fake hosts. The app shows an image search link when omitted.
         - Each cardioBlock: { id, title, modality (walk|jog|run|bike|row|swim|elliptical|incline_walk only — NEVER yoga), durationMinutes, targetPace (e.g. mph, min/mile, or conversational), intensityNote?, instructions?: string[] }.
@@ -140,7 +142,7 @@ enum PlanGenerationService {
 
         mealPlan: { targetDailyCalories: number, notes?: string, days: [{ dayIndex: number, meals: [{ id, name, description, approxCalories?: number, recipeURL: string (required https link to a real recipe page or reputable recipe search URL) }] }] }
 
-        Align lift days and cardio days with the user's targets. Keep meals realistic for their cooking time and budget.
+        Match liftDaysPerWeek and cardioDaysPerWeek. **Prioritize** putting cardio on days that already have lifting when counts allow (combined days are normal). Use separate cardio-only days for extra weekly cardio volume beyond that. Keep meals realistic for their cooking time and budget.
         """
         let system = systemBase + monthlyPlanningInstructions(planMonthSequence: planMonthSequence)
 

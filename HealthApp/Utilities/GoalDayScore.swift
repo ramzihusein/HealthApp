@@ -84,6 +84,7 @@ enum GoalDayScore {
         let hasAnySignal = (nutrition?.caloriesIn ?? 0) > 0
             || !sessionsOnDay.isEmpty
             || !lifts.isEmpty
+            || !cardioBlocks.isEmpty
             || cardioLogsOnDay.contains { $0.completedMinutes > 0 || !$0.notes.isEmpty }
         if !hasAnySignal && frac == 0 { return .noData }
 

@@ -167,14 +167,27 @@ enum MockPlanBuilder {
                 liftAssigned += 1
             }
         }
-        var cardioAssigned = 0
+        /// Cardio is **not** mutually exclusive with lifting: prefer `cardioBlocks` on strength days first, then use cardio-only rest days for any remainder.
+        var cardioFinisherOnLift = Array(repeating: false, count: 7)
+        var remainingCardio = cardioDays
         for d in slots {
-            guard cardioAssigned < cardioDays else { break }
-            if schedule[d] == .rest {
-                schedule[d] = .cardioOnly
-                cardioAssigned += 1
+            guard remainingCardio > 0 else { break }
+            switch schedule[d] {
+            case .push, .pull, .legs:
+                cardioFinisherOnLift[d] = true
+                remainingCardio -= 1
+            default:
+                break
             }
         }
+        for d in slots {
+            guard remainingCardio > 0 else { break }
+            if schedule[d] == .rest {
+                schedule[d] = .cardioOnly
+                remainingCardio -= 1
+            }
+        }
+
         for i in 0..<7 where schedule[i] == .rest {
             schedule[i] = flex ? .mobility : .rest
         }
@@ -182,11 +195,14 @@ enum MockPlanBuilder {
         return (0..<7).map { i in
             switch schedule[i] {
             case .push:
-                pushDay(dayIndex: i, equipment: equipment, sessionMins: sessionMins, injuries: injuries)
+                let base = pushDay(dayIndex: i, equipment: equipment, sessionMins: sessionMins, injuries: injuries)
+                return cardioFinisherOnLift[i] ? withPostLiftCardio(base, dayIndex: i) : base
             case .pull:
-                pullDay(dayIndex: i, equipment: equipment, sessionMins: sessionMins, injuries: injuries)
+                let base = pullDay(dayIndex: i, equipment: equipment, sessionMins: sessionMins, injuries: injuries)
+                return cardioFinisherOnLift[i] ? withPostLiftCardio(base, dayIndex: i) : base
             case .legs:
-                legsDay(dayIndex: i, equipment: equipment, sessionMins: sessionMins, injuries: injuries)
+                let base = legsDay(dayIndex: i, equipment: equipment, sessionMins: sessionMins, injuries: injuries)
+                return cardioFinisherOnLift[i] ? withPostLiftCardio(base, dayIndex: i) : base
             case .cardioOnly:
                 cardioDay(dayIndex: i, modality: cardioModality(for: i))
             case .mobility:
@@ -195,6 +211,18 @@ enum MockPlanBuilder {
                 restDay(dayIndex: i, flex: flex)
             }
         }
+    }
+
+    private static func withPostLiftCardio(_ day: WorkoutDayDTO, dayIndex: Int) -> WorkoutDayDTO {
+        var d = day
+        let modality = cardioModality(for: dayIndex)
+        var block = primaryCardioBlock(modality: modality)
+        block.id = "cardio-finisher-\(dayIndex)"
+        block.durationMinutes = max(15, min(32, Int((Double(block.durationMinutes) * 0.65).rounded())))
+        block.title = "Post-strength finisher — \(block.title)"
+        d.cardioBlocks = [block]
+        d.name = "\(day.name) + cardio finisher"
+        return d
     }
 
     private enum DayKind {
@@ -331,11 +359,10 @@ enum MockPlanBuilder {
         )
     }
 
-    private static func cardioDay(dayIndex: Int, modality: String) -> WorkoutDayDTO {
-        let block: CardioBlockDTO
+    private static func primaryCardioBlock(modality: String) -> CardioBlockDTO {
         switch modality {
         case "jog":
-            block = CardioBlockDTO(
+            return CardioBlockDTO(
                 id: "cardio1",
                 title: "Easy jog",
                 modality: "jog",
@@ -349,7 +376,7 @@ enum MockPlanBuilder {
                 ]
             )
         case "bike":
-            block = CardioBlockDTO(
+            return CardioBlockDTO(
                 id: "cardio1",
                 title: "Stationary or outdoor bike",
                 modality: "bike",
@@ -359,7 +386,7 @@ enum MockPlanBuilder {
                 instructions: ["Flat or rolling; avoid grinding heavy gears.", "Keep shoulders relaxed."]
             )
         case "row":
-            block = CardioBlockDTO(
+            return CardioBlockDTO(
                 id: "cardio1",
                 title: "Rowing erg steady state",
                 modality: "row",
@@ -369,7 +396,7 @@ enum MockPlanBuilder {
                 instructions: ["Drive with legs first.", "Maintain 24–28 strokes/min."]
             )
         case "swim":
-            block = CardioBlockDTO(
+            return CardioBlockDTO(
                 id: "cardio1",
                 title: "Easy swim",
                 modality: "swim",
@@ -379,7 +406,7 @@ enum MockPlanBuilder {
                 instructions: ["Warm up 5 min easy.", "Mix strokes if skilled; otherwise focus on freestyle easy pace."]
             )
         case "elliptical":
-            block = CardioBlockDTO(
+            return CardioBlockDTO(
                 id: "cardio1",
                 title: "Elliptical",
                 modality: "elliptical",
@@ -389,7 +416,7 @@ enum MockPlanBuilder {
                 instructions: ["5 min ramp up, 20 min steady, 5 min cool-down."]
             )
         default:
-            block = CardioBlockDTO(
+            return CardioBlockDTO(
                 id: "cardio1",
                 title: "Incline treadmill walk",
                 modality: "incline_walk",
@@ -399,6 +426,10 @@ enum MockPlanBuilder {
                 instructions: ["Short strides, tall posture.", "Use handrails only for balance."]
             )
         }
+    }
+
+    private static func cardioDay(dayIndex: Int, modality: String) -> WorkoutDayDTO {
+        let block = primaryCardioBlock(modality: modality)
         return WorkoutDayDTO(
             dayIndex: dayIndex,
             name: "Cardio — \(block.title)",
@@ -619,7 +650,7 @@ enum MockPlanBuilder {
         } else {
             parts.append("Suggested weights are starting points from last month’s logs with small, evidence-style bumps (~2.5% upper / ~5% lower); override anytime in the app.")
         }
-        parts.append("Split alternates push, pull, and legs with separate cardio blocks (no yoga). Strength and cardio are listed separately in the app.")
+        parts.append("Push/pull/legs rotation. Cardio is scheduled with strength on the same day whenever possible (finisher after lifts), with extra cardio-only days only if weekly cardio volume needs more slots (no yoga). Lifting and cardio use separate fields in the app but often share a day.")
         parts.append("Each lift day targets major groups with ≥3 moves and ≥12 hard sets per group (mock template). Target session length ~\(sessionMins) min—trim rest if needed.")
         parts.append("Equipment assumed: \(equipment.sorted().joined(separator: ", ")).")
         if lose { parts.append("Fat-loss bias: keep 2–3 hard lifts + consistent cardio as scheduled.") }
